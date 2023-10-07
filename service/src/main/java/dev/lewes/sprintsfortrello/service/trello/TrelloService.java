@@ -2,6 +2,8 @@ package dev.lewes.sprintsfortrello.service.trello;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import java.net.URI;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -46,6 +48,20 @@ public class TrelloService {
         } catch (Exception e) {
             e.printStackTrace();
             return Optional.empty();
+        }
+    }
+
+    public List<TrelloCard> getCards(String boardId) {
+        String apiUrl = trelloConnectionProperties.buildApiUrl("1/cards/" + boardId);
+
+        try {
+            return List.of(restTemplate.exchange(RequestEntity.get(URI.create(apiUrl))
+                .accept(MediaType.APPLICATION_JSON)
+                .build(), TrelloCard[].class).getBody());
+        } catch (Exception e) {
+            e.printStackTrace();
+
+            return Collections.emptyList();
         }
     }
 
