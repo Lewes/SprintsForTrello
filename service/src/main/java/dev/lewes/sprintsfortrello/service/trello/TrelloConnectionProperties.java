@@ -1,7 +1,6 @@
-package dev.lewes.sprintsfortrello.service;
+package dev.lewes.sprintsfortrello.service.trello;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 
@@ -22,11 +21,6 @@ public class TrelloConnectionProperties {
     @Value("${trello.token}")
     private String token;
 
-    @Bean
-    public TrelloConnection getTrelloConnection() {
-        return new TrelloConnection();
-    }
-
     public String getApiKey() {
         return apiKey;
     }
@@ -45,6 +39,10 @@ public class TrelloConnectionProperties {
 
     public void setToken(String token) {
         this.token = token;
+    }
+
+    public String buildApiUrl(String path) {
+        return getUrl() + path + "?key=" + getApiKey() + "&token=" + getToken();
     }
 
 }
