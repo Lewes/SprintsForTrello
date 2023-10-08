@@ -1,16 +1,8 @@
 package dev.lewes.sprintsfortrello.service.trello;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Lazy;
 
-@Lazy
-@Configuration
 public class TrelloConnectionProperties {
-
-    public void setUrl(String url) {
-        this.url = url;
-    }
 
     @Value("${trello.url}")
     private String url;
@@ -31,6 +23,10 @@ public class TrelloConnectionProperties {
 
     public String getUrl() {
         return url;
+    }
+
+    public void setUrl(String url) {
+        this.url = url;
     }
 
     public void setApiKey(String apiKey) {

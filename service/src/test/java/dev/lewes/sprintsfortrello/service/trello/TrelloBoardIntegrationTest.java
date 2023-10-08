@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
 @SpringBootTest(webEnvironment= SpringBootTest.WebEnvironment.RANDOM_PORT)
-@ContextConfiguration(classes = {SprintsForTrelloApplication.class, TrelloConnectionProperties.class, TrelloEndpointMock.class})
+@ContextConfiguration(classes = {SprintsForTrelloApplication.class, TrelloEndpointMock.class})
 public class TrelloBoardIntegrationTest {
 
     @Autowired

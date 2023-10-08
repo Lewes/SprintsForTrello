@@ -15,11 +15,14 @@ import org.springframework.web.client.RestTemplate;
 @Service
 public class TrelloService {
 
-    @Autowired
-    private TrelloConnectionProperties trelloConnectionProperties;
+    private final TrelloConnectionProperties trelloConnectionProperties;
 
     @Autowired
     private RestTemplate restTemplate;
+
+    public TrelloService(TrelloConnectionProperties trelloConnectionProperties) {
+        this.trelloConnectionProperties = trelloConnectionProperties;
+    }
 
     public boolean connect() {
         String apiUrl = trelloConnectionProperties.buildApiUrl("1/members/me");
