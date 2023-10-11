@@ -68,4 +68,8 @@ public class TrelloService {
         }
     }
 
+    public String getSprintBoardId() {
+        return trelloConnectionProperties.getBoardId();
+    }
+
 }

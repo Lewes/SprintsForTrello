@@ -4,6 +4,7 @@ import dev.lewes.sprintsfortrello.service.sprint.Sprint.Status;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -21,6 +22,13 @@ public class SprintController {
         Sprint sprint = new Sprint(name, Status.PLANNING);
 
         sprintRepository.save(sprint);
+
+        return ResponseEntity.ok(sprint);
+    }
+
+    @PostMapping("sprints/{id}/updateCardsFromTrello")
+    public ResponseEntity<Sprint> updateSprint(@PathVariable String id) {
+        Sprint sprint = sprintRepository.findById(id).get();
 
         return ResponseEntity.ok(sprint);
     }

@@ -1,8 +1,18 @@
 package dev.lewes.sprintsfortrello.service.trello;
 
+import java.util.Objects;
+
 public class TrelloCard {
 
     private String id;
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public void setIdList(String idList) {
+        this.idList = idList;
+    }
 
     private String name;
 
@@ -10,6 +20,12 @@ public class TrelloCard {
 
     private TrelloCard() {
 
+    }
+
+    public TrelloCard(String id, String name, String idList) {
+        this.id = id;
+        this.name = name;
+        this.idList = idList;
     }
 
     public String getId() {
@@ -22,5 +38,36 @@ public class TrelloCard {
 
     public String getIdList() {
         return idList;
+    }
+
+    @Override
+    public String toString() {
+        return "TrelloCard{" +
+            "id='" + id + '\'' +
+            ", name='" + name + '\'' +
+            ", idList='" + idList + '\'' +
+            '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        TrelloCard that = (TrelloCard) o;
+
+        return Objects.equals(id, that.id) &&
+            Objects.equals(name, that.name) &&
+            Objects.equals(idList, that.idList);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, name, idList);
     }
 }

@@ -13,6 +13,9 @@ public class TrelloConnectionProperties {
     @Value("${trello.token}")
     private String token;
 
+    @Value("${trello.boardId}")
+    private String boardId;
+
     public String getApiKey() {
         return apiKey;
     }
@@ -41,4 +44,7 @@ public class TrelloConnectionProperties {
         return getUrl() + path + "?key=" + getApiKey() + "&token=" + getToken();
     }
 
+    public String getBoardId() {
+        return boardId;
+    }
 }
