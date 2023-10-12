@@ -9,8 +9,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import dev.lewes.sprintsfortrello.service.SprintsForTrelloApplication;
+import dev.lewes.sprintsfortrello.service.events.EventsManager;
+import dev.lewes.sprintsfortrello.service.events.LazyListener;
 import dev.lewes.sprintsfortrello.service.sprint.TasksControllerIntegrationTest.TrelloCardsTasksEndpointMock;
 import dev.lewes.sprintsfortrello.service.tasks.SprintTask;
+import dev.lewes.sprintsfortrello.service.tasks.events.NewSprintTaskEvent;
 import dev.lewes.sprintsfortrello.service.trello.TrelloCard;
 import dev.lewes.sprintsfortrello.service.trello.TrelloConnectionProperties;
 import java.net.URI;
@@ -50,6 +53,9 @@ public class TasksControllerIntegrationTest {
     @LocalServerPort
     private int serverPort;
 
+    @Autowired
+    private EventsManager eventsManager;
+
     @BeforeEach
     public void before() {
         trelloCards.clear();
@@ -58,7 +64,7 @@ public class TasksControllerIntegrationTest {
     }
 
     @Test
-    public void addTasksWithLatestTrelloCards() {
+    public void addTasksWithNewTrelloCards() {
         String backlog_id = "BACKLOG";
 
         trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), "Test Card 1", backlog_id));
@@ -72,6 +78,30 @@ public class TasksControllerIntegrationTest {
 
         assertThat(trelloCards, containsInAnyOrder(
             actualTasks.stream()
+                .map(SprintTask::getTrelloCard)
+                .toArray()));
+    }
+
+    @Test
+    public void addTasksWithNewTrelloCardsFiresEvent() {
+        String backlog_id = "BACKLOG";
+
+        List<SprintTask> newSprintTasksReceivedByEventListener = new ArrayList<>();
+
+        eventsManager.registerListener(new LazyListener<NewSprintTaskEvent>() {
+            @Override
+            public void on(NewSprintTaskEvent newSprintTaskEvent) {
+                newSprintTasksReceivedByEventListener.add(newSprintTaskEvent.getSprintTask());
+            }
+        });
+
+        trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), "Test Card 1", backlog_id));
+        trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), "Test Card 2", backlog_id));
+
+        postTasksEndpoint();
+
+        assertThat(trelloCards, containsInAnyOrder(
+            newSprintTasksReceivedByEventListener.stream()
                 .map(SprintTask::getTrelloCard)
                 .toArray()));
     }
@@ -101,9 +131,10 @@ public class TasksControllerIntegrationTest {
     public void updateExistingTasksDoesNotAddDuplicates() {
         String backlog_id = "BACKLOG";
 
-        trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), "Test Card 1", backlog_id));
-        trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), "Test Card 2", backlog_id));
-        trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), "Test Card 2", backlog_id));
+        List.of("Test Card 1",
+            "Test Card 2",
+            "Test Card 3")
+            .forEach(name -> trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), name, backlog_id)));
 
         postTasksEndpoint();
 
@@ -119,7 +150,8 @@ public class TasksControllerIntegrationTest {
         assertThat(trelloCards, containsInAnyOrder(
             actualTasks.stream()
                 .map(SprintTask::getTrelloCard)
-                .toArray()));
+                .toArray())
+        );
     }
 
     private ResponseEntity<SprintTask[]> postTasksEndpoint() {
