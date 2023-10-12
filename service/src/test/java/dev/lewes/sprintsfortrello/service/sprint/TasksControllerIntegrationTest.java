@@ -15,7 +15,7 @@ import dev.lewes.sprintsfortrello.service.sprint.TasksControllerIntegrationTest.
 import dev.lewes.sprintsfortrello.service.tasks.SprintTask;
 import dev.lewes.sprintsfortrello.service.tasks.events.NewSprintTaskEvent;
 import dev.lewes.sprintsfortrello.service.trello.TrelloCard;
-import dev.lewes.sprintsfortrello.service.trello.TrelloConnectionProperties;
+import dev.lewes.sprintsfortrello.service.trello.TrelloProperties;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -48,7 +48,7 @@ public class TasksControllerIntegrationTest {
     public static List<TrelloCard> trelloCards = new ArrayList<>();
 
     @Autowired
-    private TrelloConnectionProperties connectionProperties;
+    private TrelloProperties connectionProperties;
 
     @LocalServerPort
     private int serverPort;
@@ -164,7 +164,7 @@ public class TasksControllerIntegrationTest {
     public static class TrelloCardsTasksEndpointMock {
 
         @Autowired
-        private TrelloConnectionProperties connectionProperties;
+        private TrelloProperties connectionProperties;
 
         @GetMapping("/1/cards/{id}")
         public ResponseEntity<JsonNode> boardsGet(@PathVariable String id) {

@@ -15,12 +15,12 @@ import org.springframework.web.client.RestTemplate;
 @Service
 public class TrelloService {
 
-    private final TrelloConnectionProperties trelloConnectionProperties;
+    private final TrelloProperties trelloConnectionProperties;
 
     @Autowired
     private RestTemplate restTemplate;
 
-    public TrelloService(TrelloConnectionProperties trelloConnectionProperties) {
+    public TrelloService(TrelloProperties trelloConnectionProperties) {
         this.trelloConnectionProperties = trelloConnectionProperties;
     }
 

@@ -34,7 +34,7 @@ public class TrelloCardIntegrationTest {
     private TrelloService trelloService;
 
     @Autowired
-    private TrelloConnectionProperties connectionProperties;
+    private TrelloProperties connectionProperties;
 
     @LocalServerPort
     private int serverPort;

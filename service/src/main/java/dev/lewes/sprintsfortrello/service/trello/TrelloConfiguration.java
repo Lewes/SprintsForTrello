@@ -7,13 +7,13 @@ import org.springframework.context.annotation.Configuration;
 public class TrelloConfiguration {
 
     @Bean
-    public TrelloService getTrelloService(TrelloConnectionProperties trelloConnectionProperties) {
+    public TrelloService getTrelloService(TrelloProperties trelloConnectionProperties) {
         return new TrelloService(trelloConnectionProperties);
     }
 
     @Bean
-    public TrelloConnectionProperties getTrelloConfigurationProperties() {
-        return new TrelloConnectionProperties();
+    public TrelloProperties getTrelloConfigurationProperties() {
+        return new TrelloProperties();
     }
 
 }

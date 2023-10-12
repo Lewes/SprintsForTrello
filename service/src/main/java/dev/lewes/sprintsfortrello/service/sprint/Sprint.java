@@ -1,5 +1,7 @@
 package dev.lewes.sprintsfortrello.service.sprint;
 
+import java.util.HashSet;
+import java.util.Set;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
@@ -20,6 +22,12 @@ public class Sprint {
     private long endTime;
 
     private Status status;
+
+    private Set<String> taskIds = new HashSet<>();
+
+    public Set<String> getTaskIds() {
+        return taskIds;
+    }
 
     private Sprint() {
 

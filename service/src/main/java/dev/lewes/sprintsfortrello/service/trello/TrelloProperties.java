@@ -2,7 +2,7 @@ package dev.lewes.sprintsfortrello.service.trello;
 
 import org.springframework.beans.factory.annotation.Value;
 
-public class TrelloConnectionProperties {
+public class TrelloProperties {
 
     @Value("${trello.url}")
     private String url;
@@ -15,6 +15,12 @@ public class TrelloConnectionProperties {
 
     @Value("${trello.boardId}")
     private String boardId;
+
+    @Value("${trello.backlogColumnId}")
+    private String backlogColumnId;
+
+    @Value("${trello.doneColumnId}")
+    private String doneColumnId;
 
     public String getApiKey() {
         return apiKey;
@@ -46,5 +52,13 @@ public class TrelloConnectionProperties {
 
     public String getBoardId() {
         return boardId;
+    }
+
+    public String getBacklogColumnId() {
+        return backlogColumnId;
+    }
+
+    public String getDoneColumnId() {
+        return doneColumnId;
     }
 }

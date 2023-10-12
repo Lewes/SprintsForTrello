@@ -31,7 +31,7 @@ public class TrelloLoginIntegrationTest {
     private TrelloService trelloService;
 
     @Autowired
-    private TrelloConnectionProperties connectionProperties;
+    private TrelloProperties connectionProperties;
 
     @LocalServerPort
     private int serverPort;
