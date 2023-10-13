@@ -11,12 +11,13 @@ function CreateSprintButton(props) {
             .then(json => {
                 props.setSprint(json);
 
-                fetch("http://localhost:8080/tasks", {method: 'POST'});
+                fetch("http://localhost:8080/tasks", {method: 'POST'}).then(res => {
                 fetch("http://localhost:8080/sprints/" + json.id + "/tasks", {method: 'POST'})
                     .then(res => res.json())
                     .then(json => {
                         props.setSprint(json);
                     });
+                });
             });
     };
 
@@ -29,6 +30,18 @@ function CreateSprintButton(props) {
         title="Learn More"
         color="#841584"
     >Create Sprint</button>);
+}
+
+function SyncWithTrelloButton(props) {
+    const syncWithTrello = () => {
+        fetch("http://localhost:8080/tasks", {method: 'POST'});
+    };
+
+    return (<button
+        onClick={syncWithTrello}
+        title="Learn More"
+        color="#841584"
+    >Sync with Trello</button>);
 }
 
 function App() {
@@ -52,6 +65,7 @@ function App() {
 
   return (
     <div className="App">
+        <SyncWithTrelloButton></SyncWithTrelloButton>
         <CreateSprintButton sprint={sprint} setSprint={setSprint}></CreateSprintButton>
 
       {JSON.stringify(sprint, null, 2)}
