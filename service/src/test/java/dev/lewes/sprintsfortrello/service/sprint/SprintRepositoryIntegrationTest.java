@@ -37,6 +37,7 @@ public class SprintRepositoryIntegrationTest {
     @Test
     public void getCurrentSprint_success() {
         Sprint sprint = new Sprint("Test Sprint 1", Status.IN_PROGRESS);
+        sprint.setCurrent(true);
 
         sprintRepository.save(sprint);
 
