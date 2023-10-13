@@ -22,9 +22,13 @@ public class EventsManager {
                     continue;
                 }
 
+                if(!method.getParameterTypes()[0].isAssignableFrom(object.getClass())) {
+                    continue;
+                }
+
                 try {
                     method.invoke(listener, object);
-                } catch (IllegalAccessException | InvocationTargetException e) {
+                } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
             }

@@ -60,6 +60,7 @@ public class SprintController {
         } else {
             sprint = sprintRepository.findById(id);
         }
+
         return sprint;
     }
 

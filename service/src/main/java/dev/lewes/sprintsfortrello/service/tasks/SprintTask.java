@@ -30,7 +30,11 @@ public class SprintTask {
 
     private TrelloCard trelloCard;
 
-    private Status status;
+    public void setStatus(Status status) {
+        this.status = status;
+    }
+
+    private Status status = Status.UNKNOWN;
 
     private long timeCompleted;
 
@@ -43,6 +47,7 @@ public class SprintTask {
     }
 
     public enum Status {
+        UNKNOWN,
         NOT_STARTED,
         IN_PROGRESS,
         DONE

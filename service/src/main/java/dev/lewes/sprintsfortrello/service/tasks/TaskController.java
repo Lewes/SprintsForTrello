@@ -1,6 +1,7 @@
 package dev.lewes.sprintsfortrello.service.tasks;
 
 import dev.lewes.sprintsfortrello.service.events.EventsManager;
+import dev.lewes.sprintsfortrello.service.tasks.events.ExistingSprintTaskUpdatedEvent;
 import dev.lewes.sprintsfortrello.service.tasks.events.NewSprintTaskEvent;
 import dev.lewes.sprintsfortrello.service.trello.TrelloCard;
 import dev.lewes.sprintsfortrello.service.trello.TrelloService;
@@ -34,7 +35,7 @@ public class TaskController {
     @PostMapping("tasks")
     public synchronized ResponseEntity<List<SprintTask>> syncTasksFromTrello() {
         List<TrelloCard> cards = trelloService.getCards(trelloService.getSprintBoardId());
-        List<NewSprintTaskEvent> newSprintTaskEvents = new ArrayList<>();
+        List<Object> newSprintTaskEvents = new ArrayList<>();
 
         List<SprintTask> tasks = cards.stream()
             .map(card -> {
@@ -44,6 +45,8 @@ public class TaskController {
 
                 if(existing.isPresent()) {
                     sprintTask = existing.get();
+
+                    newSprintTaskEvents.add(new ExistingSprintTaskUpdatedEvent(sprintTask));
                 } else {
                     newSprintTaskEvents.add(new NewSprintTaskEvent(sprintTask));
                 }
