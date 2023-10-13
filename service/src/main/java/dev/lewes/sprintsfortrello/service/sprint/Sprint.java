@@ -13,7 +13,7 @@ public class Sprint {
     private String name;
     private long startTime;
     private long endTime;
-    private Status status;
+    private SprintStatus status;
     private boolean current;
     private Set<String> taskIds = new HashSet<>();
 
@@ -21,7 +21,7 @@ public class Sprint {
 
     }
 
-    public Sprint(String name, Status status) {
+    public Sprint(String name, SprintStatus status) {
         this.name = name;
         this.status = status;
     }
@@ -29,6 +29,7 @@ public class Sprint {
     public String getId() {
         return id;
     }
+
     public String getName() {
         return name;
     }
@@ -41,7 +42,7 @@ public class Sprint {
         return endTime;
     }
 
-    public Status getStatus() {
+    public SprintStatus getStatus() {
         return status;
     }
 
@@ -57,7 +58,7 @@ public class Sprint {
         this.current = current;
     }
 
-    enum Status {
+    enum SprintStatus {
         PLANNING,
         IN_PROGRESS,
         ENDED

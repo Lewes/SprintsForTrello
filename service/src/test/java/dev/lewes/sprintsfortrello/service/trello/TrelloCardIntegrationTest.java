@@ -2,6 +2,8 @@ package dev.lewes.sprintsfortrello.service.trello;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasProperty;
 import static org.hamcrest.Matchers.is;
 
@@ -12,7 +14,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.lewes.sprintsfortrello.service.SprintsForTrelloApplication;
 import dev.lewes.sprintsfortrello.service.trello.TrelloCardIntegrationTest.TrelloCardsEndpointMock;
 import java.util.List;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -50,7 +51,7 @@ public class TrelloCardIntegrationTest {
 
         List<TrelloCard> cards = trelloService.getCards(boardId);
 
-        assertThat(cards, Matchers.containsInAnyOrder(allOf(
+        assertThat(cards, containsInAnyOrder(allOf(
             hasProperty("id", is("test_card_id")),
             hasProperty("name", is("Test Card")),
             hasProperty("idList", is("test_list_id"))
@@ -63,7 +64,7 @@ public class TrelloCardIntegrationTest {
 
         List<TrelloCard> cards = trelloService.getCards(boardId);
 
-        assertThat(cards, Matchers.empty());
+        assertThat(cards, empty());
     }
 
     @RestController

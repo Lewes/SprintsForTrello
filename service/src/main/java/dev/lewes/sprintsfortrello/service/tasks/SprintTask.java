@@ -8,6 +8,43 @@ import org.springframework.data.mongodb.core.mapping.Document;
 @Document("sprintTasks")
 public class SprintTask {
 
+    @Id
+    private String id;
+    private TrelloCard trelloCard;
+    private Status status = Status.UNKNOWN;
+    private long timeCompleted;
+
+    public enum Status {
+        UNKNOWN,
+        NOT_STARTED,
+        IN_PROGRESS,
+        DONE
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public TrelloCard getTrelloCard() {
+        return trelloCard;
+    }
+
+    public void setTrelloCard(TrelloCard trelloCard) {
+        this.trelloCard = trelloCard;
+    }
+
+    public Status getStatus() {
+        return status;
+    }
+
+    public void setStatus(Status status) {
+        this.status = status;
+    }
+
+    public long getTimeCompleted() {
+        return timeCompleted;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -23,46 +60,6 @@ public class SprintTask {
     @Override
     public int hashCode() {
         return Objects.hash(id, trelloCard, status, timeCompleted);
-    }
-
-    @Id
-    private String id;
-
-    private TrelloCard trelloCard;
-
-    public void setStatus(Status status) {
-        this.status = status;
-    }
-
-    private Status status = Status.UNKNOWN;
-
-    private long timeCompleted;
-
-    public TrelloCard getTrelloCard() {
-        return trelloCard;
-    }
-
-    public void setTrelloCard(TrelloCard trelloCard) {
-        this.trelloCard = trelloCard;
-    }
-
-    public enum Status {
-        UNKNOWN,
-        NOT_STARTED,
-        IN_PROGRESS,
-        DONE
-    }
-
-    public String getId() {
-        return id;
-    }
-
-    public Status getStatus() {
-        return status;
-    }
-
-    public long getTimeCompleted() {
-        return timeCompleted;
     }
 
 }

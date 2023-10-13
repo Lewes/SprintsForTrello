@@ -3,7 +3,6 @@ package dev.lewes.sprintsfortrello.service.trello;
 public class TrelloBoard {
 
     private String id;
-
     private String name;
 
     private TrelloBoard() {

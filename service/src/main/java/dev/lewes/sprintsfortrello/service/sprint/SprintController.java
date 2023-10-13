@@ -2,7 +2,7 @@ package dev.lewes.sprintsfortrello.service.sprint;
 
 import static org.springframework.http.ResponseEntity.status;
 
-import dev.lewes.sprintsfortrello.service.sprint.Sprint.Status;
+import dev.lewes.sprintsfortrello.service.sprint.Sprint.SprintStatus;
 import dev.lewes.sprintsfortrello.service.tasks.SprintTask;
 import dev.lewes.sprintsfortrello.service.tasks.SprintTaskRepository;
 import dev.lewes.sprintsfortrello.service.trello.TrelloProperties;
@@ -36,7 +36,7 @@ public class SprintController {
         String name = (String) params.get("name");
         boolean current = (boolean) params.getOrDefault("current", false);
 
-        Sprint sprint = new Sprint(name, Status.PLANNING);
+        Sprint sprint = new Sprint(name, SprintStatus.PLANNING);
         sprint.setCurrent(current);
 
         sprintRepository.save(sprint);

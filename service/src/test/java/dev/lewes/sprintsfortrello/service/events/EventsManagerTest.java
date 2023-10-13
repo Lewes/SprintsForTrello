@@ -21,7 +21,6 @@ public class EventsManagerTest {
     @Test
     public void registerEvents() {
         MockListener mockListener = new MockListener();
-
         eventsManager.registerListener(mockListener);
 
         UUID fakeCardId = UUID.randomUUID();
@@ -46,7 +45,7 @@ public class EventsManagerTest {
 
     }
 
-    public static class FakeTrelloCardEvent {
+    public static class FakeTrelloCardEvent extends Event {
 
         public FakeTrelloCardEvent(UUID cardId) {
             this.cardId = cardId;

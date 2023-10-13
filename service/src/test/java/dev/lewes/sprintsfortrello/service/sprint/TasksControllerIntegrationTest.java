@@ -1,6 +1,5 @@
 package dev.lewes.sprintsfortrello.service.sprint;
 
-
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.is;
@@ -16,7 +15,7 @@ import dev.lewes.sprintsfortrello.service.tasks.SprintTask;
 import dev.lewes.sprintsfortrello.service.tasks.events.NewSprintTaskEvent;
 import dev.lewes.sprintsfortrello.service.trello.TrelloCard;
 import dev.lewes.sprintsfortrello.service.trello.TrelloProperties;
-import java.net.URI;
+import dev.lewes.sprintsfortrello.service.utils.RestExchangeTestUtils;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -29,7 +28,6 @@ import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.annotation.DirtiesContext.ClassMode;
@@ -44,11 +42,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class TasksControllerIntegrationTest {
 
     private TestRestTemplate restTemplate = new TestRestTemplate();
+    private RestExchangeTestUtils restUtils;
 
     public static List<TrelloCard> trelloCards = new ArrayList<>();
 
     @Autowired
-    private TrelloProperties connectionProperties;
+    private TrelloProperties trelloProperties;
 
     @LocalServerPort
     private int serverPort;
@@ -60,32 +59,34 @@ public class TasksControllerIntegrationTest {
     public void before() {
         trelloCards.clear();
 
-        connectionProperties.setUrl("http://localhost:" + serverPort + "/");
+        trelloProperties.setUrl("http://localhost:" + serverPort + "/");
+
+        restUtils = new RestExchangeTestUtils(trelloProperties);
     }
 
     @Test
     public void addTasksWithNewTrelloCards() {
-        String backlog_id = "BACKLOG";
+        trelloCards.addAll(List.of("Test Card 1",
+            "Test Card 2").stream()
+            .map(name -> new TrelloCard(UUID.randomUUID().toString(), name, trelloProperties.getBacklogColumnId()))
+            .toList()
+        );
 
-        trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), "Test Card 1", backlog_id));
-        trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), "Test Card 2", backlog_id));
+        ResponseEntity<SprintTask[]> tasksResponse = postTasksEndpoint();
 
-        ResponseEntity<SprintTask[]> responseEntity = postTasksEndpoint();
+        assertThat(tasksResponse.getStatusCode().is2xxSuccessful(), is(true));
 
-        assertThat(responseEntity.getStatusCode().is2xxSuccessful(), is(true));
-
-        List<SprintTask> actualTasks = Arrays.asList(responseEntity.getBody());
+        List<SprintTask> actualTasks = Arrays.asList(tasksResponse.getBody());
 
         assertThat(trelloCards, containsInAnyOrder(
             actualTasks.stream()
                 .map(SprintTask::getTrelloCard)
-                .toArray()));
+                .toArray())
+        );
     }
 
     @Test
     public void addTasksWithNewTrelloCardsFiresEvent() {
-        String backlog_id = "BACKLOG";
-
         List<SprintTask> newSprintTasksReceivedByEventListener = new ArrayList<>();
 
         eventsManager.registerListener(new LazyListener<NewSprintTaskEvent>() {
@@ -95,31 +96,34 @@ public class TasksControllerIntegrationTest {
             }
         });
 
-        trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), "Test Card 1", backlog_id));
-        trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), "Test Card 2", backlog_id));
+        trelloCards.addAll(List.of("Test Card 1",
+                "Test Card 2").stream()
+            .map(name -> new TrelloCard(UUID.randomUUID().toString(), name, trelloProperties.getBacklogColumnId()))
+            .toList()
+        );
 
         postTasksEndpoint();
 
         assertThat(trelloCards, containsInAnyOrder(
             newSprintTasksReceivedByEventListener.stream()
                 .map(SprintTask::getTrelloCard)
-                .toArray()));
+                .toArray())
+        );
     }
 
     @Test
     public void getTasksReturnsAll() {
-        String backlog_id = "BACKLOG";
-
-        trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), "Test Card 1", backlog_id));
-        trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), "Test Card 2", backlog_id));
+        trelloCards.addAll(List.of("Test Card 1",
+                "Test Card 2").stream()
+            .map(name -> new TrelloCard(UUID.randomUUID().toString(), name, trelloProperties.getBacklogColumnId()))
+            .toList()
+        );
 
         postTasksEndpoint();
 
-        ResponseEntity<SprintTask[]> responseEntity = restTemplate.exchange(RequestEntity.get(URI.create(buildApiUrl("tasks")))
-            .accept(MediaType.APPLICATION_JSON)
-            .build(), SprintTask[].class);
+        ResponseEntity<SprintTask[]> tasksResponse = restUtils.getAtUrl("tasks", SprintTask[].class);
 
-        List<SprintTask> actualTasks = Arrays.asList(responseEntity.getBody());
+        List<SprintTask> actualTasks = Arrays.asList(tasksResponse.getBody());
 
         assertThat(trelloCards, containsInAnyOrder(
             actualTasks.stream()
@@ -129,23 +133,21 @@ public class TasksControllerIntegrationTest {
 
     @Test
     public void updateExistingTasksDoesNotAddDuplicates() {
-        String backlog_id = "BACKLOG";
-
         List.of("Test Card 1",
             "Test Card 2",
             "Test Card 3")
-            .forEach(name -> trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), name, backlog_id)));
+            .forEach(name -> trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), name, trelloProperties.getBacklogColumnId())));
 
         postTasksEndpoint();
 
         trelloCards.get(0).setName("Test Card 1 Renamed");
         trelloCards.get(1).setIdList("another_column_id");
 
-        ResponseEntity<SprintTask[]> responseEntity = postTasksEndpoint();
+        ResponseEntity<SprintTask[]> tasksResponse = postTasksEndpoint();
 
-        assertThat(responseEntity.getStatusCode().is2xxSuccessful(), is(true));
+        assertThat(tasksResponse.getStatusCode().is2xxSuccessful(), is(true));
 
-        List<SprintTask> actualTasks = Arrays.asList(responseEntity.getBody());
+        List<SprintTask> actualTasks = Arrays.asList(tasksResponse.getBody());
 
         assertThat(trelloCards, containsInAnyOrder(
             actualTasks.stream()
@@ -155,9 +157,7 @@ public class TasksControllerIntegrationTest {
     }
 
     private ResponseEntity<SprintTask[]> postTasksEndpoint() {
-        return restTemplate.exchange(RequestEntity.post(URI.create(buildApiUrl("tasks")))
-            .accept(MediaType.APPLICATION_JSON)
-            .build(), SprintTask[].class);
+        return restUtils.postAtUrl("tasks", null, SprintTask[].class);
     }
 
     @RestController
@@ -179,10 +179,6 @@ public class TasksControllerIntegrationTest {
                 .body(results);
         }
 
-    }
-
-    public String buildApiUrl(String path) {
-        return "http://localhost:" + serverPort + "/" + path;
     }
 
 }

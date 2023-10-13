@@ -1,5 +1,6 @@
 package dev.lewes.sprintsfortrello.service.trello;
 
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -8,7 +9,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.lewes.sprintsfortrello.service.SprintsForTrelloApplication;
 import dev.lewes.sprintsfortrello.service.trello.TrelloLoginIntegrationTest.TrelloEndpointMock;
 import java.util.UUID;
-import org.hamcrest.MatcherAssert;
 import org.json.JSONException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -48,21 +48,21 @@ public class TrelloLoginIntegrationTest {
         connectionProperties.setToken("VALID_TOKEN");
         connectionProperties.setApiKey("VALID_API_KEY");
 
-        MatcherAssert.assertThat(trelloService.connect(), is(true));
+        assertThat(trelloService.connect(), is(true));
     }
 
     @Test
     public void login_invalidToken() {
         connectionProperties.setToken("INVALID_TOKEN");
 
-        MatcherAssert.assertThat(trelloService.connect(), is(false));
+        assertThat(trelloService.connect(), is(false));
     }
 
     @Test
     public void login_invalidKey() {
         connectionProperties.setApiKey("INVALID_API_KEY");
 
-        MatcherAssert.assertThat(trelloService.connect(), is(false));
+        assertThat(trelloService.connect(), is(false));
     }
 
     @RestController
@@ -80,11 +80,9 @@ public class TrelloLoginIntegrationTest {
             ObjectNode parentObject = new ObjectMapper().createObjectNode();
             parentObject.put("id", UUID.randomUUID().toString());
 
-            ResponseEntity entity = ResponseEntity.status(HttpStatus.OK)
+            return ResponseEntity.status(HttpStatus.OK)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(parentObject);
-
-            return entity;
         }
 
     }

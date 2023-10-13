@@ -1,11 +1,10 @@
 package dev.lewes.sprintsfortrello.service.sprint;
 
-
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasProperty;
 import static org.hamcrest.Matchers.is;
-import static org.springframework.http.RequestEntity.*;
+import static org.springframework.http.RequestEntity.patch;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,6 +14,7 @@ import dev.lewes.sprintsfortrello.service.sprint.SprintControllerIntegrationTest
 import dev.lewes.sprintsfortrello.service.tasks.SprintTask;
 import dev.lewes.sprintsfortrello.service.trello.TrelloCard;
 import dev.lewes.sprintsfortrello.service.trello.TrelloProperties;
+import dev.lewes.sprintsfortrello.service.utils.RestExchangeTestUtils;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -30,7 +30,6 @@ import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.annotation.DirtiesContext.ClassMode;
@@ -39,58 +38,62 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
-@SpringBootTest(webEnvironment= SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @DirtiesContext(classMode = ClassMode.AFTER_EACH_TEST_METHOD)
-@ContextConfiguration(classes = {SprintsForTrelloApplication.class, SprintController.class, TrelloCardsSprintEndpointMock.class})
+@ContextConfiguration(classes = {SprintsForTrelloApplication.class, TrelloCardsSprintEndpointMock.class})
 public class SprintControllerIntegrationTest {
 
     @LocalServerPort
     private int serverPort;
 
-    private TestRestTemplate restTemplate = new TestRestTemplate();
+    private final TestRestTemplate restTemplate = new TestRestTemplate();
 
     @Autowired
     private SprintRepository sprintRepository;
 
     @Autowired
-    private TrelloProperties connectionProperties;
+    private TrelloProperties trelloProperties;
 
     public static List<TrelloCard> trelloCards = new ArrayList<>();
+
+    private RestExchangeTestUtils restUtils;
 
     @BeforeEach
     public void before() {
         trelloCards.clear();
 
-        connectionProperties.setUrl("http://localhost:" + serverPort + "/");
+        trelloProperties.setUrl("http://localhost:" + serverPort + "/");
+
+        restUtils = new RestExchangeTestUtils(trelloProperties);
     }
 
     @Test
     public void createSprint() {
-        ResponseEntity<Sprint> responseEntity = createSprintWithName();
+        String sprintName = "Test Sprint 1";
+        
+        ResponseEntity<Sprint> responseEntity = createSprintWithName(sprintName);
 
         assertThat(responseEntity.getStatusCode().is2xxSuccessful(), is(true));
-        assertThat(sprintRepository.findByName("Test Sprint 1"), hasProperty("present", is(true)));
+        assertThat(sprintRepository.findByName(sprintName), hasProperty("present", is(true)));
     }
 
     @Test
     public void getNonExistentSprintReturns404() {
-        ResponseEntity<Sprint> currentSprintResponse = restTemplate.exchange(get(URI.create(buildApiUrl("sprints/" + UUID.randomUUID())))
-            .accept(MediaType.APPLICATION_JSON).build(), Sprint.class);
+        ResponseEntity<Sprint> currentSprintResponse = restUtils.getAtUrl("sprints/" + UUID.randomUUID(), Sprint.class);
 
         assertThat(currentSprintResponse.getStatusCode().is4xxClientError(), is(true));
     }
 
     @Test
     public void createSprintAsCurrent() {
-        ResponseEntity<Sprint> responseEntity = restTemplate.exchange(post(URI.create(buildApiUrl("sprints")))
-            .accept(MediaType.APPLICATION_JSON)
-            .body(Map.of("name", "Test Sprint 1",
-                "current", true)), Sprint.class);
+        ResponseEntity<Sprint> responseEntity = restUtils.postAtUrl("sprints",
+            Map.of("name", "Test Sprint 1",
+                "current", true),
+            Sprint.class);
 
         assertThat(responseEntity.getStatusCode().is2xxSuccessful(), is(true));
 
-        ResponseEntity<Sprint> currentSprintResponse = restTemplate.exchange(get(URI.create(buildApiUrl("sprints/current")))
-            .accept(MediaType.APPLICATION_JSON).build(), Sprint.class);
+        ResponseEntity<Sprint> currentSprintResponse = restUtils.getAtUrl("sprints/current", Sprint.class);
 
         assertThat(responseEntity.getStatusCode().is2xxSuccessful(), is(true));
         assertThat(responseEntity.getBody().getId(), is(currentSprintResponse.getBody().getId()));
@@ -98,93 +101,78 @@ public class SprintControllerIntegrationTest {
 
     @Test
     public void noCurrentSprintReturns404UponFetching() {
-        List<ResponseEntity<String>> responses = Stream.of(
+        List<ResponseEntity<String>> sprintResponses = Stream.of(
             "sprints/current",
             "sprints/current/tasks"
-        ).map(path -> restTemplate.exchange(get(URI.create(buildApiUrl(path))).build(), String.class))
-            .toList();
+        ).map(path -> restUtils.getAtUrl(path, String.class)).toList();
 
-        responses.get(0).getStatusCode().is4xxClientError();
-
-        for(ResponseEntity<String> responseEntity : responses) {
-            assertThat(responseEntity.getStatusCode().is4xxClientError(), is(true));
+        for(ResponseEntity<String> sprintResponse : sprintResponses) {
+            assertThat(sprintResponse.getStatusCode().is4xxClientError(), is(true));
         }
     }
 
     @Test
     public void createSprintAndSetAsCurrentAndFetchCurrent() {
-        ResponseEntity<Sprint> responseEntity = createSprintWithName();
-
-        assertThat(responseEntity.getStatusCode().is2xxSuccessful(), is(true));
-        assertThat(sprintRepository.findByName("Test Sprint 1"), hasProperty("present", is(true)));
-
+        ResponseEntity<Sprint> responseEntity = createSprintWithName("Test Sprint 1");
         String sprintId = responseEntity.getBody().getId();
 
-        responseEntity = restTemplate.exchange(patch(URI.create(buildApiUrl("sprints/" + sprintId + "")))
+        ResponseEntity<Sprint> setSprintAsCurrentResponse = restTemplate.exchange(patch(URI.create(restUtils.buildApiUrl("sprints/" + sprintId)))
             .accept(MediaType.APPLICATION_JSON)
             .body(Map.of("current", true)), Sprint.class);
 
-        assertThat(responseEntity.getStatusCode().is2xxSuccessful(), is(true));
+        assertThat(setSprintAsCurrentResponse.getStatusCode().is2xxSuccessful(), is(true));
 
-        responseEntity = restTemplate.exchange(get(URI.create(buildApiUrl("sprints/current")))
-            .accept(MediaType.APPLICATION_JSON).build(), Sprint.class);
+        ResponseEntity<Sprint> currentSprintResponse = restUtils.getAtUrl("sprints/current", Sprint.class);
 
-        assertThat(responseEntity.getStatusCode().is2xxSuccessful(), is(true));
-        assertThat(responseEntity.getBody().getId(), is(sprintId));
+        assertThat(currentSprintResponse.getStatusCode().is2xxSuccessful(), is(true));
+        assertThat(currentSprintResponse.getBody().getId(), is(sprintId));
     }
 
     @Test
     public void updateSprintWithOnlyBackloggedTrelloCards() {
-        ResponseEntity<Sprint> createResponseEntity = createSprintWithName();
-
+        ResponseEntity<Sprint> createResponseEntity = createSprintWithName("Test Sprint 1");
         String id = createResponseEntity.getBody().getId();
 
         List.of("Test Card 1",
                 "Test Card 2",
                 "Test Card 3")
-            .forEach(name -> trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), name, connectionProperties.getBacklogColumnId())));
+            .forEach(name -> trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), name, trelloProperties.getBacklogColumnId())));
 
-        trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), "Compelted Test Card 1", connectionProperties.getDoneColumnId()));
+        trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), "Completed Test Card 1", trelloProperties.getDoneColumnId()));
 
         ResponseEntity<SprintTask[]> tasks = invokeSyncTasksWithTrelloEndpoint();
+        ResponseEntity<SprintTask[]> sprintTasksResponse = restUtils.postAtUrl("sprints/" + id + "/tasks", Map.of("name", "Test Sprint 1"), SprintTask[].class);
 
-        ResponseEntity<SprintTask[]> responseEntity = restTemplate.exchange(post(URI.create(buildApiUrl("sprints/" + id + "/tasks")))
-            .accept(MediaType.APPLICATION_JSON)
-            .body(Map.of("name", "Test Sprint 1")), SprintTask[].class);
+        assertThat(sprintTasksResponse.getStatusCode().is2xxSuccessful(), is(true));
 
-        assertThat(responseEntity.getStatusCode().is2xxSuccessful(), is(true));
-
-        assertThat(Arrays.stream(responseEntity.getBody()).toList(), containsInAnyOrder(
+        assertThat(Arrays.stream(sprintTasksResponse.getBody()).toList(), containsInAnyOrder(
             Arrays.stream(tasks.getBody())
-                .filter(task -> task.getTrelloCard().getIdList().equals(connectionProperties.getBacklogColumnId()))
+                .filter(task -> task.getTrelloCard().getIdList().equals(trelloProperties.getBacklogColumnId()))
                 .toArray()
         ));
     }
 
     @Test
     public void updateNonExistentSprintWithTrelloCardsReturns404() {
-        ResponseEntity<Sprint> responseEntity = restTemplate.exchange(post(URI.create(buildApiUrl("sprints/" + UUID.randomUUID() + "/tasks")))
-            .accept(MediaType.APPLICATION_JSON)
-            .body(Map.of("name", "Test Sprint 1")), Sprint.class);
+        ResponseEntity<Sprint> sprintResponse = restUtils.postAtUrl("sprints/" + UUID.randomUUID() + "/tasks", null, Sprint.class);
 
-        assertThat(responseEntity.getStatusCode().is4xxClientError(), is(true));
+        assertThat(sprintResponse.getStatusCode().is4xxClientError(), is(true));
     }
 
     @Test
     public void createAndGetSprintTasks() {
-        ResponseEntity<Sprint> createResponseEntity = createSprintWithName();
+        ResponseEntity<Sprint> createResponseEntity = createSprintWithName("Test Sprint 1");
         String id = createResponseEntity.getBody().getId();
 
         List.of("Test Card 1",
                 "Test Card 2",
                 "Test Card 3")
-            .forEach(name -> trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), name, connectionProperties.getBacklogColumnId())));
+            .forEach(name -> trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), name, trelloProperties.getBacklogColumnId())));
 
         ResponseEntity<SprintTask[]> tasks = invokeSyncTasksWithTrelloEndpoint();
+        restUtils.postAtUrl("sprints/" + id + "/tasks", null, SprintTask[].class);
 
-        restTemplate.exchange(post(URI.create(buildApiUrl("sprints/" + id + "/tasks"))).build(), SprintTask[].class);
-
-        ResponseEntity<SprintTask[]> response = restTemplate.exchange(get(URI.create(buildApiUrl("sprints/" + id + "/tasks"))).build(), SprintTask[].class);
+        ResponseEntity<SprintTask[]> response = restUtils.getAtUrl("sprints/" + id + "/tasks", SprintTask[].class);
         assertThat(response.getStatusCode().is2xxSuccessful(), is(true));
 
         assertThat(Arrays.stream(response.getBody()).toList(), containsInAnyOrder(
@@ -192,31 +180,23 @@ public class SprintControllerIntegrationTest {
         ));
     }
 
-    private ResponseEntity<Sprint> createSprintWithName() {
-        return restTemplate.exchange(post(URI.create(buildApiUrl("sprints")))
-            .accept(MediaType.APPLICATION_JSON)
-            .body(Map.of("name", "Test Sprint 1")), Sprint.class);
+    private ResponseEntity<Sprint> createSprintWithName(String name) {
+        return restUtils.postAtUrl("sprints", Map.of("name", name), Sprint.class);
     }
 
     private ResponseEntity<SprintTask[]> invokeSyncTasksWithTrelloEndpoint() {
-        return restTemplate.exchange(RequestEntity.post(URI.create(buildApiUrl("tasks")))
-            .accept(MediaType.APPLICATION_JSON)
-            .build(), SprintTask[].class);
-    }
-
-    public String buildApiUrl(String path) {
-        return "http://localhost:" + serverPort + "/" + path;
+        return restUtils.postAtUrl("tasks", null, SprintTask[].class);
     }
 
     @RestController
     public static class TrelloCardsSprintEndpointMock {
 
         @Autowired
-        private TrelloProperties connectionProperties;
+        private TrelloProperties trelloProperties;
 
         @GetMapping("/1/boards/{id}/cards")
         public ResponseEntity<JsonNode> boardsGet(@PathVariable String id) {
-            if(!id.equalsIgnoreCase(connectionProperties.getBoardId())) {
+            if(!id.equalsIgnoreCase(trelloProperties.getBoardId())) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
 

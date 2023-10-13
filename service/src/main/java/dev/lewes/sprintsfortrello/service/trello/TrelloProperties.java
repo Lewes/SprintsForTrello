@@ -6,19 +6,14 @@ public class TrelloProperties {
 
     @Value("${trello.url}")
     private String url;
-
     @Value("${trello.apiKey}")
     private String apiKey;
-
     @Value("${trello.token}")
     private String token;
-
     @Value("${trello.boardId}")
     private String boardId;
-
     @Value("${trello.backlogColumnId}")
     private String backlogColumnId;
-
     @Value("${trello.doneColumnId}")
     private String doneColumnId;
 
@@ -46,10 +41,6 @@ public class TrelloProperties {
         this.token = token;
     }
 
-    public String buildApiUrl(String path) {
-        return getUrl() + path + "?key=" + getApiKey() + "&token=" + getToken();
-    }
-
     public String getBoardId() {
         return boardId;
     }
@@ -61,4 +52,9 @@ public class TrelloProperties {
     public String getDoneColumnId() {
         return doneColumnId;
     }
+
+    public String buildApiUrl(String path) {
+        return getUrl() + path + "?key=" + getApiKey() + "&token=" + getToken();
+    }
+
 }

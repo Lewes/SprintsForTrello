@@ -2,16 +2,10 @@ package dev.lewes.sprintsfortrello.service.tasks.events;
 
 import dev.lewes.sprintsfortrello.service.tasks.SprintTask;
 
-public class ExistingSprintTaskUpdatedEvent {
-
-    private final SprintTask sprintTask;
+public class ExistingSprintTaskUpdatedEvent extends SprintTaskEvent {
 
     public ExistingSprintTaskUpdatedEvent(SprintTask sprintTask) {
-        this.sprintTask = sprintTask;
-    }
-
-    public SprintTask getSprintTask() {
-        return sprintTask;
+        super(sprintTask);
     }
 
 }

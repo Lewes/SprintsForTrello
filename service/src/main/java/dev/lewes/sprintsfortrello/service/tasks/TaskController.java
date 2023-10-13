@@ -3,6 +3,7 @@ package dev.lewes.sprintsfortrello.service.tasks;
 import dev.lewes.sprintsfortrello.service.events.EventsManager;
 import dev.lewes.sprintsfortrello.service.tasks.events.ExistingSprintTaskUpdatedEvent;
 import dev.lewes.sprintsfortrello.service.tasks.events.NewSprintTaskEvent;
+import dev.lewes.sprintsfortrello.service.tasks.events.SprintTaskEvent;
 import dev.lewes.sprintsfortrello.service.trello.TrelloCard;
 import dev.lewes.sprintsfortrello.service.trello.TrelloService;
 import java.util.ArrayList;
@@ -35,7 +36,7 @@ public class TaskController {
     @PostMapping("tasks")
     public synchronized ResponseEntity<List<SprintTask>> syncTasksFromTrello() {
         List<TrelloCard> cards = trelloService.getCards(trelloService.getSprintBoardId());
-        List<Object> newSprintTaskEvents = new ArrayList<>();
+        List<SprintTaskEvent> sprintTaskEvents = new ArrayList<>();
 
         List<SprintTask> tasks = cards.stream()
             .map(card -> {
@@ -46,9 +47,9 @@ public class TaskController {
                 if(existing.isPresent()) {
                     sprintTask = existing.get();
 
-                    newSprintTaskEvents.add(new ExistingSprintTaskUpdatedEvent(sprintTask));
+                    sprintTaskEvents.add(new ExistingSprintTaskUpdatedEvent(sprintTask));
                 } else {
-                    newSprintTaskEvents.add(new NewSprintTaskEvent(sprintTask));
+                    sprintTaskEvents.add(new NewSprintTaskEvent(sprintTask));
                 }
 
                 sprintTask.setTrelloCard(card);
@@ -59,7 +60,7 @@ public class TaskController {
 
         sprintTaskRepository.saveAll(tasks);
 
-        newSprintTaskEvents.forEach(event -> eventsManager.fireEvent(event));
+        sprintTaskEvents.forEach(event -> eventsManager.fireEvent(event));
 
         return ResponseEntity.ok(sprintTaskRepository.findAll());
     }

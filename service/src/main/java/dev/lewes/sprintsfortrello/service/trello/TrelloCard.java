@@ -7,17 +7,7 @@ public class TrelloCard {
 
     @Id
     private String id;
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public void setIdList(String idList) {
-        this.idList = idList;
-    }
-
     private String name;
-
     private String idList;
 
     private TrelloCard() {
@@ -38,8 +28,16 @@ public class TrelloCard {
         return name;
     }
 
+    public void setName(String name) {
+        this.name = name;
+    }
+
     public String getIdList() {
         return idList;
+    }
+
+    public void setIdList(String idList) {
+        this.idList = idList;
     }
 
     @Override
@@ -72,4 +70,5 @@ public class TrelloCard {
     public int hashCode() {
         return Objects.hash(id, name, idList);
     }
+
 }
