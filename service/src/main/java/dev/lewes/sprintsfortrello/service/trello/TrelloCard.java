@@ -1,9 +1,11 @@
 package dev.lewes.sprintsfortrello.service.trello;
 
 import java.util.Objects;
+import org.springframework.data.annotation.Id;
 
 public class TrelloCard {
 
+    @Id
     private String id;
 
     public void setName(String name) {

@@ -10,24 +10,12 @@ public class Sprint {
 
     @Id
     private String id;
-
-    public String getName() {
-        return name;
-    }
-
     private String name;
-
     private long startTime;
-
     private long endTime;
-
     private Status status;
-
+    private boolean current;
     private Set<String> taskIds = new HashSet<>();
-
-    public Set<String> getTaskIds() {
-        return taskIds;
-    }
 
     private Sprint() {
 
@@ -41,6 +29,9 @@ public class Sprint {
     public String getId() {
         return id;
     }
+    public String getName() {
+        return name;
+    }
 
     public long getStartTime() {
         return startTime;
@@ -52,6 +43,18 @@ public class Sprint {
 
     public Status getStatus() {
         return status;
+    }
+
+    public Set<String> getTaskIds() {
+        return taskIds;
+    }
+
+    public boolean isCurrent() {
+        return current;
+    }
+
+    public void setCurrent(boolean current) {
+        this.current = current;
     }
 
     enum Status {

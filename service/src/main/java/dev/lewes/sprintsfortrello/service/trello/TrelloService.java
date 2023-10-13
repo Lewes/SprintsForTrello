@@ -55,7 +55,7 @@ public class TrelloService {
     }
 
     public List<TrelloCard> getCards(String boardId) {
-        String apiUrl = trelloConnectionProperties.buildApiUrl("1/cards/" + boardId);
+        String apiUrl = trelloConnectionProperties.buildApiUrl("1/boards/" + boardId + "/cards");
 
         try {
             return List.of(restTemplate.exchange(RequestEntity.get(URI.create(apiUrl))

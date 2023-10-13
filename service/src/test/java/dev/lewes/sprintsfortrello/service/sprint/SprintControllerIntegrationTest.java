@@ -1,7 +1,9 @@
 package dev.lewes.sprintsfortrello.service.sprint;
 
 
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.hasProperty;
 import static org.hamcrest.Matchers.is;
 import static org.springframework.http.RequestEntity.*;
 
@@ -19,8 +21,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -65,19 +66,76 @@ public class SprintControllerIntegrationTest {
 
     @Test
     public void createSprint() {
+        ResponseEntity<Sprint> responseEntity = createSprintWithName();
+
+        assertThat(responseEntity.getStatusCode().is2xxSuccessful(), is(true));
+        assertThat(sprintRepository.findByName("Test Sprint 1"), hasProperty("present", is(true)));
+    }
+
+    @Test
+    public void getNonExistentSprintReturns404() {
+        ResponseEntity<Sprint> currentSprintResponse = restTemplate.exchange(get(URI.create(buildApiUrl("sprints/" + UUID.randomUUID())))
+            .accept(MediaType.APPLICATION_JSON).build(), Sprint.class);
+
+        assertThat(currentSprintResponse.getStatusCode().is4xxClientError(), is(true));
+    }
+
+    @Test
+    public void createSprintAsCurrent() {
         ResponseEntity<Sprint> responseEntity = restTemplate.exchange(post(URI.create(buildApiUrl("sprints")))
             .accept(MediaType.APPLICATION_JSON)
-            .body(Map.of("name", "Test Sprint 1")), Sprint.class);
+            .body(Map.of("name", "Test Sprint 1",
+                "current", true)), Sprint.class);
 
-        MatcherAssert.assertThat(responseEntity.getStatusCode().is2xxSuccessful(), is(true));
-        MatcherAssert.assertThat(sprintRepository.findByName("Test Sprint 1"), Matchers.hasProperty("present", is(true)));
+        assertThat(responseEntity.getStatusCode().is2xxSuccessful(), is(true));
+
+        ResponseEntity<Sprint> currentSprintResponse = restTemplate.exchange(get(URI.create(buildApiUrl("sprints/current")))
+            .accept(MediaType.APPLICATION_JSON).build(), Sprint.class);
+
+        assertThat(responseEntity.getStatusCode().is2xxSuccessful(), is(true));
+        assertThat(responseEntity.getBody().getId(), is(currentSprintResponse.getBody().getId()));
+    }
+
+    @Test
+    public void noCurrentSprintReturns404UponFetching() {
+        List<ResponseEntity<String>> responses = Stream.of(
+            "sprints/current",
+            "sprints/current/tasks"
+        ).map(path -> restTemplate.exchange(get(URI.create(buildApiUrl(path))).build(), String.class))
+            .toList();
+
+        responses.get(0).getStatusCode().is4xxClientError();
+
+        for(ResponseEntity<String> responseEntity : responses) {
+            assertThat(responseEntity.getStatusCode().is4xxClientError(), is(true));
+        }
+    }
+
+    @Test
+    public void createSprintAndSetAsCurrentAndFetchCurrent() {
+        ResponseEntity<Sprint> responseEntity = createSprintWithName();
+
+        assertThat(responseEntity.getStatusCode().is2xxSuccessful(), is(true));
+        assertThat(sprintRepository.findByName("Test Sprint 1"), hasProperty("present", is(true)));
+
+        String sprintId = responseEntity.getBody().getId();
+
+        responseEntity = restTemplate.exchange(patch(URI.create(buildApiUrl("sprints/" + sprintId + "")))
+            .accept(MediaType.APPLICATION_JSON)
+            .body(Map.of("current", true)), Sprint.class);
+
+        assertThat(responseEntity.getStatusCode().is2xxSuccessful(), is(true));
+
+        responseEntity = restTemplate.exchange(get(URI.create(buildApiUrl("sprints/current")))
+            .accept(MediaType.APPLICATION_JSON).build(), Sprint.class);
+
+        assertThat(responseEntity.getStatusCode().is2xxSuccessful(), is(true));
+        assertThat(responseEntity.getBody().getId(), is(sprintId));
     }
 
     @Test
     public void updateSprintWithOnlyBackloggedTrelloCards() {
-        ResponseEntity<Sprint> createResponseEntity = restTemplate.exchange(post(URI.create(buildApiUrl("sprints")))
-            .accept(MediaType.APPLICATION_JSON)
-            .body(Map.of("name", "Test Sprint 1")), Sprint.class);
+        ResponseEntity<Sprint> createResponseEntity = createSprintWithName();
 
         String id = createResponseEntity.getBody().getId();
 
@@ -88,22 +146,59 @@ public class SprintControllerIntegrationTest {
 
         trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), "Compelted Test Card 1", connectionProperties.getDoneColumnId()));
 
-        ResponseEntity<SprintTask[]> tasks = postTasksEndpoint();
+        ResponseEntity<SprintTask[]> tasks = invokeSyncTasksWithTrelloEndpoint();
 
-        ResponseEntity<Sprint> responseEntity = restTemplate.exchange(post(URI.create(buildApiUrl("sprints/" + id + "/tasks")))
+        ResponseEntity<SprintTask[]> responseEntity = restTemplate.exchange(post(URI.create(buildApiUrl("sprints/" + id + "/tasks")))
             .accept(MediaType.APPLICATION_JSON)
-            .body(Map.of("name", "Test Sprint 1")), Sprint.class);
+            .body(Map.of("name", "Test Sprint 1")), SprintTask[].class);
 
-        MatcherAssert.assertThat(responseEntity.getStatusCode().is2xxSuccessful(), is(true));
+        assertThat(responseEntity.getStatusCode().is2xxSuccessful(), is(true));
 
-        MatcherAssert.assertThat(responseEntity.getBody().getTaskIds(), containsInAnyOrder(
+        assertThat(Arrays.stream(responseEntity.getBody()).toList(), containsInAnyOrder(
             Arrays.stream(tasks.getBody())
                 .filter(task -> task.getTrelloCard().getIdList().equals(connectionProperties.getBacklogColumnId()))
-                .map(SprintTask::getId).toArray()
+                .toArray()
         ));
     }
 
-    private ResponseEntity<SprintTask[]> postTasksEndpoint() {
+    @Test
+    public void updateNonExistentSprintWithTrelloCardsReturns404() {
+        ResponseEntity<Sprint> responseEntity = restTemplate.exchange(post(URI.create(buildApiUrl("sprints/" + UUID.randomUUID() + "/tasks")))
+            .accept(MediaType.APPLICATION_JSON)
+            .body(Map.of("name", "Test Sprint 1")), Sprint.class);
+
+        assertThat(responseEntity.getStatusCode().is4xxClientError(), is(true));
+    }
+
+    @Test
+    public void createAndGetSprintTasks() {
+        ResponseEntity<Sprint> createResponseEntity = createSprintWithName();
+        String id = createResponseEntity.getBody().getId();
+
+        List.of("Test Card 1",
+                "Test Card 2",
+                "Test Card 3")
+            .forEach(name -> trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), name, connectionProperties.getBacklogColumnId())));
+
+        ResponseEntity<SprintTask[]> tasks = invokeSyncTasksWithTrelloEndpoint();
+
+        restTemplate.exchange(post(URI.create(buildApiUrl("sprints/" + id + "/tasks"))).build(), SprintTask[].class);
+
+        ResponseEntity<SprintTask[]> response = restTemplate.exchange(get(URI.create(buildApiUrl("sprints/" + id + "/tasks"))).build(), SprintTask[].class);
+        assertThat(response.getStatusCode().is2xxSuccessful(), is(true));
+
+        assertThat(Arrays.stream(response.getBody()).toList(), containsInAnyOrder(
+            Arrays.stream(tasks.getBody()).toArray()
+        ));
+    }
+
+    private ResponseEntity<Sprint> createSprintWithName() {
+        return restTemplate.exchange(post(URI.create(buildApiUrl("sprints")))
+            .accept(MediaType.APPLICATION_JSON)
+            .body(Map.of("name", "Test Sprint 1")), Sprint.class);
+    }
+
+    private ResponseEntity<SprintTask[]> invokeSyncTasksWithTrelloEndpoint() {
         return restTemplate.exchange(RequestEntity.post(URI.create(buildApiUrl("tasks")))
             .accept(MediaType.APPLICATION_JSON)
             .build(), SprintTask[].class);
@@ -119,7 +214,7 @@ public class SprintControllerIntegrationTest {
         @Autowired
         private TrelloProperties connectionProperties;
 
-        @GetMapping("/1/cards/{id}")
+        @GetMapping("/1/boards/{id}/cards")
         public ResponseEntity<JsonNode> boardsGet(@PathVariable String id) {
             if(!id.equalsIgnoreCase(connectionProperties.getBoardId())) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();

@@ -6,7 +6,7 @@ import org.springframework.data.mongodb.repository.Query;
 
 public interface SprintRepository extends MongoRepository<Sprint, String> {
 
-    @Query("{status: IN_PROGRESS}")
+    @Query("{current: true}")
     Optional<Sprint> getCurrentSprint();
 
     Optional<Sprint> findByName(String name);

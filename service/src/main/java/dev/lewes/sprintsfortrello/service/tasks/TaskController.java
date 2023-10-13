@@ -32,7 +32,7 @@ public class TaskController {
     }
 
     @PostMapping("tasks")
-    public ResponseEntity<List<SprintTask>> syncTasksFromTrello() {
+    public synchronized ResponseEntity<List<SprintTask>> syncTasksFromTrello() {
         List<TrelloCard> cards = trelloService.getCards(trelloService.getSprintBoardId());
         List<NewSprintTaskEvent> newSprintTaskEvents = new ArrayList<>();
 
@@ -40,7 +40,7 @@ public class TaskController {
             .map(card -> {
                 SprintTask sprintTask = new SprintTask();
 
-                Optional<SprintTask> existing = sprintTaskRepository.findByCardId(card.getId());
+                Optional<SprintTask> existing = sprintTaskRepository.findByTrelloCardId(card.getId());
 
                 if(existing.isPresent()) {
                     sprintTask = existing.get();
@@ -48,7 +48,6 @@ public class TaskController {
                     newSprintTaskEvents.add(new NewSprintTaskEvent(sprintTask));
                 }
 
-                sprintTask.setCardId(card.getId());
                 sprintTask.setTrelloCard(card);
 
                 return sprintTask;

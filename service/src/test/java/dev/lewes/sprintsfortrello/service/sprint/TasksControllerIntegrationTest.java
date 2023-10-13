@@ -166,7 +166,7 @@ public class TasksControllerIntegrationTest {
         @Autowired
         private TrelloProperties connectionProperties;
 
-        @GetMapping("/1/cards/{id}")
+        @GetMapping("/1/boards/{id}/cards")
         public ResponseEntity<JsonNode> boardsGet(@PathVariable String id) {
             if(!id.equalsIgnoreCase(connectionProperties.getBoardId())) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();

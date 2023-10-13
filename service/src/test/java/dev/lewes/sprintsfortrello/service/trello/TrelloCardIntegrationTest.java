@@ -69,7 +69,7 @@ public class TrelloCardIntegrationTest {
     @RestController
     public static class TrelloCardsEndpointMock {
 
-        @GetMapping("/1/cards/{id}")
+        @GetMapping("/1/boards/{id}/cards")
         public ResponseEntity<JsonNode> boardsGet(@PathVariable String id) {
             if(!id.equalsIgnoreCase("test_board_id")) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
