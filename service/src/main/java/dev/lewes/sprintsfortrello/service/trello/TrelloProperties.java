@@ -17,6 +17,9 @@ public class TrelloProperties {
     @Value("${trello.doneColumnId}")
     private String doneColumnId;
 
+    @Value("${sprint.lengthInDays}")
+    private int sprintLengthInDays;
+
     public String getApiKey() {
         return apiKey;
     }
@@ -51,6 +54,10 @@ public class TrelloProperties {
 
     public String getDoneColumnId() {
         return doneColumnId;
+    }
+
+    public int getSprintLengthInDays() {
+        return sprintLengthInDays;
     }
 
     public String buildApiUrl(String path) {

@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import dev.lewes.sprintsfortrello.service.SprintsForTrelloApplication;
+import dev.lewes.sprintsfortrello.service.sprint.Sprint.SprintStatus;
 import dev.lewes.sprintsfortrello.service.sprint.SprintControllerIntegrationTest.TrelloCardsSprintEndpointMock;
 import dev.lewes.sprintsfortrello.service.tasks.SprintTask;
 import dev.lewes.sprintsfortrello.service.trello.TrelloCard;
@@ -178,6 +179,50 @@ public class SprintControllerIntegrationTest {
         assertThat(Arrays.stream(response.getBody()).toList(), containsInAnyOrder(
             Arrays.stream(tasks.getBody()).toArray()
         ));
+    }
+
+    @Test
+    public void startSprint() {
+        long preStartTime = System.currentTimeMillis();
+
+        ResponseEntity<Sprint> createResponse = createSprintWithName("Test Sprint 1");
+        String sprintId = createResponse.getBody().getId();
+
+        ResponseEntity<Sprint> startSprintResponse = changeSprintStatus(sprintId, SprintStatus.IN_PROGRESS);
+
+        assertThat(startSprintResponse.getBody(), hasProperty("status", is(SprintStatus.IN_PROGRESS)));
+        assertThat(startSprintResponse.getBody().getStartTime() > preStartTime &&
+            startSprintResponse.getBody().getStartTime() < System.currentTimeMillis(), is(true));
+        assertThat(startSprintResponse.getBody().getEstimatedDurationInDays(), is(trelloProperties.getSprintLengthInDays()));
+    }
+
+    @Test
+    public void startingSprintTwiceReturnsBadRequest() {
+        ResponseEntity<Sprint> createResponse = createSprintWithName("Test Sprint 1");
+        String sprintId = createResponse.getBody().getId();
+
+        changeSprintStatus(sprintId, SprintStatus.IN_PROGRESS);
+        ResponseEntity<Sprint> startSprintAgainResponse = changeSprintStatus(sprintId, SprintStatus.IN_PROGRESS);
+
+        assertThat(startSprintAgainResponse.getStatusCode().is4xxClientError(), is(true));
+    }
+
+    @Test
+    public void startingSprintWhenItsFinishedReturnsBadRequest() {
+        ResponseEntity<Sprint> createResponse = createSprintWithName("Test Sprint 1");
+        String sprintId = createResponse.getBody().getId();
+
+        changeSprintStatus(sprintId, SprintStatus.IN_PROGRESS);
+        changeSprintStatus(sprintId, SprintStatus.ENDED);
+        ResponseEntity<Sprint> startSprintAgainResponse = changeSprintStatus(sprintId, SprintStatus.IN_PROGRESS);
+
+        assertThat(startSprintAgainResponse.getStatusCode().is4xxClientError(), is(true));
+    }
+
+    private ResponseEntity<Sprint> changeSprintStatus(String sprintId, SprintStatus status) {
+        return restUtils.patchAtUrl("sprints/" + sprintId,
+            Map.of("status", status),
+            Sprint.class);
     }
 
     private ResponseEntity<Sprint> createSprintWithName(String name) {

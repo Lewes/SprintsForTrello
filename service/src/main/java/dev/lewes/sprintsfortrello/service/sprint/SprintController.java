@@ -4,11 +4,16 @@ import static org.springframework.http.ResponseEntity.status;
 
 import dev.lewes.sprintsfortrello.service.sprint.Sprint.SprintStatus;
 import dev.lewes.sprintsfortrello.service.tasks.SprintTask;
+import dev.lewes.sprintsfortrello.service.tasks.SprintTask.Status;
 import dev.lewes.sprintsfortrello.service.tasks.SprintTaskRepository;
 import dev.lewes.sprintsfortrello.service.trello.TrelloProperties;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -68,8 +73,24 @@ public class SprintController {
     public ResponseEntity<Sprint> updateSprint(@PathVariable String id, @RequestBody Map<String, Object> params) {
         Sprint sprint = getSprintByIdOrSynonym(id).get();
 
-        boolean current = (boolean) params.get("current");
+        boolean current = (boolean) params.getOrDefault("current", false);
         sprint.setCurrent(current);
+
+        if(params.containsKey("status")) {
+            SprintStatus newStatus = SprintStatus.valueOf((String) params.get("status"));
+
+            if(newStatus == sprint.getStatus() ||
+                newStatus.isBefore(sprint.getStatus())) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            }
+
+            if(newStatus == SprintStatus.IN_PROGRESS) {
+                sprint.setStartTime(System.currentTimeMillis());
+                sprint.setEstimatedDurationInDays(connectionProperties.getSprintLengthInDays());
+            }
+
+            sprint.setStatus(newStatus);
+        }
 
         sprintRepository.save(sprint);
 
@@ -111,6 +132,63 @@ public class SprintController {
             .toList();
 
         return ResponseEntity.ok(list);
+    }
+
+    @GetMapping("sprints/{id}/progress")
+    public ResponseEntity<SprintProgress> getSprintProgress(@PathVariable String id) {
+        SprintProgress sprintProgress = new SprintProgress();
+
+        Optional<Sprint> sprint = getSprintByIdOrSynonym(id);
+
+        if(sprint.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+
+        if(sprint.get().getStatus() == SprintStatus.PLANNING) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTimeInMillis(sprint.get().getStartTime());
+
+        List<SprintTask> tasks = sprint.get().getTaskIds().stream()
+            .map(taskId -> sprintTaskRepository.findById(taskId).get())
+            .toList();
+
+        int daysCompleted = daysBetween(calendar, Calendar.getInstance());
+
+        for(int x = 0; x <= daysCompleted; x++) {
+            Calendar newCalendar = (Calendar) calendar.clone();
+
+            newCalendar.add(Calendar.DAY_OF_YEAR, x);
+
+            int value = 0;
+
+            for(SprintTask task : tasks) {
+                if(task.getStatus() == Status.NOT_STARTED ||
+                    task.getStatus() == Status.IN_PROGRESS ||
+                    (task.getStatus() == Status.DONE && task.getTimeCompleted() < newCalendar.getTimeInMillis())) {
+                    value++;
+                }
+            }
+
+            sprintProgress.getDays2RemainingPoints().put(dateToFormatted(newCalendar.getTime()), value);
+        }
+
+        return ResponseEntity.ok(sprintProgress);
+    }
+
+    private int daysBetween(Calendar startDate, Calendar endDate) {
+        long end = endDate.getTimeInMillis();
+        long start = startDate.getTimeInMillis();
+
+        return (int) TimeUnit.MILLISECONDS.toDays(Math.abs(end - start));
+    }
+
+    private String dateToFormatted(Date date) {
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
+
+        return simpleDateFormat.format(date);
     }
 
 }

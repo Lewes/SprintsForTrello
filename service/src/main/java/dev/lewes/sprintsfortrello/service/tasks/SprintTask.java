@@ -45,6 +45,10 @@ public class SprintTask {
         return timeCompleted;
     }
 
+    public void setTimeCompleted(long timeCompleted) {
+        this.timeCompleted = timeCompleted;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {

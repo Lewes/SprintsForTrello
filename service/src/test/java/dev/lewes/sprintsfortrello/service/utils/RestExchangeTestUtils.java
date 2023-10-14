@@ -1,6 +1,7 @@
 package dev.lewes.sprintsfortrello.service.utils;
 
 import static org.springframework.http.RequestEntity.get;
+import static org.springframework.http.RequestEntity.patch;
 import static org.springframework.http.RequestEntity.post;
 
 import dev.lewes.sprintsfortrello.service.trello.TrelloProperties;
@@ -24,6 +25,13 @@ public class RestExchangeTestUtils {
 
     public <T> ResponseEntity<T> postAtUrl(String path, Object body, Class<T> responseType) {
         return restTemplate.exchange(post(URI.create(buildApiUrl(path)))
+            .accept(MediaType.APPLICATION_JSON)
+            .body(body), responseType);
+    }
+
+
+    public <T> ResponseEntity<T> patchAtUrl(String path, Object body, Class<T> responseType) {
+        return restTemplate.exchange(patch(URI.create(buildApiUrl(path)))
             .accept(MediaType.APPLICATION_JSON)
             .body(body), responseType);
     }

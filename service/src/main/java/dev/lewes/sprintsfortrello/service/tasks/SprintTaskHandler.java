@@ -38,7 +38,8 @@ public class SprintTaskHandler implements Listener {
             task.setStatus(Status.NOT_STARTED);
         }
 
-        if(task.getTrelloCard().getIdList().equals(trelloProperties.getDoneColumnId())) {
+        if(task.getTrelloCard().getIdList().equals(trelloProperties.getDoneColumnId()) && task.getStatus() != Status.DONE) {
+            task.setTimeCompleted(System.currentTimeMillis());
             task.setStatus(Status.DONE);
         }
 

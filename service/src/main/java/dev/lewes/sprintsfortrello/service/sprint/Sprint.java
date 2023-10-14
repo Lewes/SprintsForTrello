@@ -11,11 +11,15 @@ public class Sprint {
     @Id
     private String id;
     private String name;
+
     private long startTime;
     private long endTime;
+
     private SprintStatus status;
     private boolean current;
     private Set<String> taskIds = new HashSet<>();
+
+    private int estimatedDurationInDays;
 
     private Sprint() {
 
@@ -38,12 +42,20 @@ public class Sprint {
         return startTime;
     }
 
+    public void setStartTime(long startTime) {
+        this.startTime = startTime;
+    }
+
     public long getEndTime() {
         return endTime;
     }
 
     public SprintStatus getStatus() {
         return status;
+    }
+
+    public void setStatus(SprintStatus status) {
+        this.status = status;
     }
 
     public Set<String> getTaskIds() {
@@ -58,10 +70,33 @@ public class Sprint {
         this.current = current;
     }
 
+    public int getEstimatedDurationInDays() {
+        return estimatedDurationInDays;
+    }
+
+    public void setEstimatedDurationInDays(int estimatedDurationInDays) {
+        this.estimatedDurationInDays = estimatedDurationInDays;
+    }
+
     enum SprintStatus {
-        PLANNING,
-        IN_PROGRESS,
-        ENDED
+        PLANNING(0),
+        IN_PROGRESS(1),
+        ENDED(2);
+
+        private final int time;
+
+        SprintStatus(int time) {
+            this.time = time;
+        }
+
+        public int getTime() {
+            return time;
+        }
+
+        public boolean isBefore(SprintStatus other) {
+            return time < other.getTime();
+        }
+
     }
 
 }
