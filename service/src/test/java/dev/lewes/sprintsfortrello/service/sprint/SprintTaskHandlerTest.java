@@ -79,58 +79,71 @@ public class SprintTaskHandlerTest {
 
     @Test
     public void tasksOutsideOfColumnsAreUnknownStatus() {
-        List.of("Test Card 1",
-                "Test Card 2",
-                "Test Card 3")
-            .forEach(name -> trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), name, "random_unknown_column")));
+        createGivenNumberOfTrelloCardsInColumn(3, "random_unknown_column");
 
-        ResponseEntity<SprintTask[]> tasks = invokeSyncTasksWithTrelloEndpoint();
+        ResponseEntity<SprintTask[]> tasks = syncTrelloTasks();
 
-        assertThat(Arrays.stream(tasks.getBody()).map(SprintTask::getStatus).toList(), containsInAnyOrder(
-            trelloCards.stream().map(card -> Status.UNKNOWN).toArray()
+        assertThat(getTaskStatuses(tasks), containsInAnyOrder(
+            trelloCards.stream()
+                .map(card -> Status.UNKNOWN)
+                .toArray()
         ));
+    }
+
+    private static List<Status> getTaskStatuses(ResponseEntity<SprintTask[]> tasks) {
+        return Arrays.stream(tasks.getBody())
+            .map(SprintTask::getStatus)
+            .toList();
+    }
+
+    private static void createGivenNumberOfTrelloCardsInColumn(int amount, String columnId) {
+        for(int x = 0; x < amount; x++) {
+            trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), "Test Card" + x, columnId));
+        }
     }
 
     @Test
     public void tasksInBacklogAreStatusNotStarted() {
-        ResponseEntity<Sprint> sprintResponseEntity = createSprintWithName("Test Sprint 1");
-        String id = sprintResponseEntity.getBody().getId();
+        String sprintId = createTestSprintAndReturnId();
 
-        List.of("Test Card 1",
-                "Test Card 2",
-                "Test Card 3")
-            .forEach(name -> trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), name, trelloProperties.getBacklogColumnId())));
+        createTrelloCardsInBacklog();
+        syncTrelloTasks();
 
-        invokeSyncTasksWithTrelloEndpoint();
+        ResponseEntity<SprintTask[]> tasks = addAllTasksToSprint(sprintId);
 
-        ResponseEntity<SprintTask[]> tasks = restUtils.postAtUrl("sprints/" + id + "/tasks", null, SprintTask[].class);
-
-        assertThat(Arrays.stream(tasks.getBody()).map(SprintTask::getStatus).toList(), containsInAnyOrder(
+        assertThat(getTaskStatuses(tasks), containsInAnyOrder(
             trelloCards.stream().map(card -> Status.NOT_STARTED).toArray()
         ));
+    }
+
+    private ResponseEntity<SprintTask[]> addAllTasksToSprint(String id) {
+        return restUtils.postAtUrl("sprints/" + id + "/tasks", null, SprintTask[].class);
+    }
+
+    private String createTestSprintAndReturnId() {
+        ResponseEntity<Sprint> sprintResponseEntity = createTestSprint();
+        
+        return sprintResponseEntity.getBody().getId();
+    }
+
+    private ResponseEntity<Sprint> createTestSprint() {
+        return restUtils.postAtUrl("sprints", Map.of("name", "Test Sprint"), Sprint.class);
     }
 
     @Test
     public void cardsAreSetAsDoneWhenMovedToDone() {
         long startedTime = System.currentTimeMillis();
 
-        ResponseEntity<Sprint> sprintResponseEntity = createSprintWithName("Test Sprint 1");
-        String id = sprintResponseEntity.getBody().getId();
+        createTrelloCardsInBacklog();
+        syncTrelloTasks();
 
-        List.of("Test Card 1",
-                "Test Card 2",
-                "Test Card 3")
-            .forEach(name -> trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), name, trelloProperties.getBacklogColumnId())));
-
-        invokeSyncTasksWithTrelloEndpoint();
-
-        restUtils.postAtUrl("sprints/" + id + "/tasks", null, SprintTask[].class);
+        String sprintId = createTestSprintAndReturnId();
+        addAllTasksToSprint(sprintId);
 
         trelloCards.get(0).setIdList(trelloProperties.getDoneColumnId());
+        syncTrelloTasks();
 
-        invokeSyncTasksWithTrelloEndpoint();
-
-        ResponseEntity<SprintTask[]> tasks =restUtils.getAtUrl("sprints/" + id + "/tasks", SprintTask[].class);
+        ResponseEntity<SprintTask[]> tasks = getSprintTasks(sprintId);
 
         assertThat(Arrays.stream(tasks.getBody()).toArray(), hasItemInArray(
             allOf(
@@ -143,40 +156,46 @@ public class SprintTaskHandlerTest {
         ));
     }
 
+    private ResponseEntity<SprintTask[]> getSprintTasks(String id) {
+        return restUtils.getAtUrl("sprints/" + id + "/tasks", SprintTask[].class);
+    }
+
+    private void createTrelloCardsInBacklog() {
+        createGivenNumberOfTrelloCardsInColumn(3, trelloProperties.getBacklogColumnId());
+    }
+
     @Test
     public void progressOfNonStartedSprintReturnsBadRequest() {
-        ResponseEntity<Sprint> createResponseEntity = createSprintWithName("Test Sprint 1");
-        Sprint sprint = createResponseEntity.getBody();
+        String sprintId = createTestSprintAndReturnId();
 
-        ResponseEntity<SprintProgress> sprintProgressResponse = restUtils.getAtUrl("sprints/" + sprint.getId() + "/progress", SprintProgress.class);
+        ResponseEntity<SprintProgress> sprintProgressResponse = getSprintProgress(sprintId);
 
         assertThat(sprintProgressResponse.getStatusCode().is4xxClientError(), is(true));
     }
 
+    private ResponseEntity<SprintProgress> getSprintProgress(String sprintId) {
+        return restUtils.getAtUrl("sprints/" + sprintId + "/progress", SprintProgress.class);
+    }
+
     @Test
     public void progressOfNonExistentSprintReturns404() {
-        ResponseEntity<SprintProgress> sprintProgressResponse = restUtils.getAtUrl("sprints/" + UUID.randomUUID() + "/progress", SprintProgress.class);
+        ResponseEntity<SprintProgress> sprintProgressResponse = getSprintProgress(UUID.randomUUID().toString());
 
         assertThat(sprintProgressResponse.getStatusCode().is4xxClientError(), is(true));
     }
 
     @Test
     public void onlyOneDayEntryForSprintProgressForNewSprint() throws ParseException {
-        ResponseEntity<Sprint> createResponseEntity = createSprintWithName("Test Sprint 1");
+        createTrelloCardsInBacklog();
+        syncTrelloTasks();
+
+        ResponseEntity<Sprint> createResponseEntity = createTestSprint();
         Sprint sprint = createResponseEntity.getBody();
 
-        restUtils.patchAtUrl("sprints/" + sprint.getId(), Map.of("status", SprintStatus.IN_PROGRESS), Sprint.class);
+        addAllTasksToSprint(sprint.getId());
+        startSprintAndReturn(sprint.getId());
 
-        List.of("Test Card 1",
-                "Test Card 2",
-                "Test Card 3")
-            .forEach(name -> trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), name, trelloProperties.getBacklogColumnId())));
-
-        invokeSyncTasksWithTrelloEndpoint();
-
-        restUtils.postAtUrl("sprints/" + sprint.getId() + "/tasks", null, SprintTask[].class);
-
-        ResponseEntity<SprintProgress> sprintProgressResponse = restUtils.getAtUrl("sprints/" + sprint.getId() + "/progress", SprintProgress.class);
+        ResponseEntity<SprintProgress> sprintProgressResponse = getSprintProgress(sprint.getId());
         SprintProgress sprintProgress = sprintProgressResponse.getBody();
 
         assertThat(sprintProgress.getDays2RemainingPoints().size(), is(1));
@@ -195,11 +214,47 @@ public class SprintTaskHandlerTest {
         }
     }
 
+    private Sprint startSprintAndReturn(String sprintId) {
+        return restUtils.patchAtUrl("sprints/" + sprintId,
+            Map.of("status", SprintStatus.IN_PROGRESS),
+            Sprint.class).getBody();
+    }
+
+    @Test
+    public void sprintsReturnPredictedBurndown() throws ParseException {
+        createTrelloCardsInBacklog();
+        syncTrelloTasks();
+
+        String sprintId = createTestSprintAndReturnId();
+        addAllTasksToSprint(sprintId);
+
+        Sprint sprint = startSprintAndReturn(sprintId);
+
+        ResponseEntity<SprintProgress> sprintProgressResponse = getSprintProgress(sprintId);
+        SprintProgress sprintProgress = sprintProgressResponse.getBody();
+
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
+
+        assertThat(sprintProgress.getDays2ExpectedPoints().size(), is(trelloProperties.getSprintLengthInDays() + 1));
+        assertThat(sprintProgress.getDays2ExpectedPoints().get(simpleDateFormat.format(Calendar.getInstance().getTime())), is((double) sprint.getStartingPoints()));
+
+        for(String date : sprintProgress.getDays2RemainingPoints().keySet()) {
+            Date parsedDate = simpleDateFormat.parse(date);
+
+            assertThat(parsedDate, allOf(
+                is(notNullValue())
+            ));
+
+            assertThat(parsedDate.getTime() < System.currentTimeMillis(), is(true));
+            assertThat(parsedDate.getTime() >= setTimeStampToMidnight(sprint.getStartTime()), is(true));
+        }
+    }
+
     @Test
     public void partiallyCompletedSprintOnlyReturnsUpToPresent() throws ParseException {
         int daysAgo = 4;
 
-        ResponseEntity<Sprint> createResponseEntity = createSprintWithName("Test Sprint 1");
+        ResponseEntity<Sprint> createResponseEntity = createTestSprint();
         Sprint sprint = createResponseEntity.getBody();
 
         sprint.setStatus(SprintStatus.IN_PROGRESS);
@@ -207,22 +262,18 @@ public class SprintTaskHandlerTest {
 
         sprintRepository.save(sprint);
 
-        List.of("Test Card 1",
-                "Test Card 2",
-                "Test Card 3")
-            .forEach(name -> trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), name, trelloProperties.getBacklogColumnId())));
-
-        invokeSyncTasksWithTrelloEndpoint();
-        restUtils.postAtUrl("sprints/" + sprint.getId() + "/tasks", null, SprintTask[].class);
+        createTrelloCardsInBacklog();
+        syncTrelloTasks();
+        addAllTasksToSprint(sprint.getId());
 
         SprintTask sprintTask = sprintTaskRepository.findByTrelloCardId(trelloCards.get(0).getId()).get();
         sprintTask.setTimeCompleted(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(2));
         sprintTask.setStatus(Status.DONE);
         sprintTaskRepository.save(sprintTask);
 
-        ResponseEntity<SprintTask[]> sprintTasks = restUtils.getAtUrl("sprints/" + sprint.getId() + "/tasks", SprintTask[].class);
+        ResponseEntity<SprintTask[]> sprintTasks = getSprintTasks(sprint.getId());
 
-        ResponseEntity<SprintProgress> sprintProgressResponse = restUtils.getAtUrl("sprints/" + sprint.getId() + "/progress", SprintProgress.class);
+        ResponseEntity<SprintProgress> sprintProgressResponse = getSprintProgress(sprint.getId());
         SprintProgress sprintProgress = sprintProgressResponse.getBody();
 
         assertThat(sprintProgress.getDays2RemainingPoints().size(), is(daysAgo + 1));
@@ -265,11 +316,7 @@ public class SprintTaskHandlerTest {
         return calendar.getTimeInMillis();
     }
 
-    private ResponseEntity<Sprint> createSprintWithName(String name) {
-        return restUtils.postAtUrl("sprints", Map.of("name", name), Sprint.class);
-    }
-
-    private ResponseEntity<SprintTask[]> invokeSyncTasksWithTrelloEndpoint() {
+    private ResponseEntity<SprintTask[]> syncTrelloTasks() {
         return restUtils.postAtUrl("tasks", null, SprintTask[].class);
     }
 

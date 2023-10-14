@@ -20,6 +20,7 @@ public class Sprint {
     private Set<String> taskIds = new HashSet<>();
 
     private int estimatedDurationInDays;
+    private int startingPoints;
 
     private Sprint() {
 
@@ -76,6 +77,14 @@ public class Sprint {
 
     public void setEstimatedDurationInDays(int estimatedDurationInDays) {
         this.estimatedDurationInDays = estimatedDurationInDays;
+    }
+
+    public int getStartingPoints() {
+        return startingPoints;
+    }
+
+    public void setStartingPoints(int startingPoints) {
+        this.startingPoints = startingPoints;
     }
 
     enum SprintStatus {

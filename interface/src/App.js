@@ -1,61 +1,6 @@
-import logo from './logo.svg';
 import './App.css';
 import { useState, useEffect } from 'react';
-import React from 'react';
-import {
-    Chart as ChartJS,
-    CategoryScale,
-    LinearScale,
-    PointElement,
-    LineElement,
-    Title,
-    Tooltip,
-    Legend,
-} from 'chart.js';
-import { Line } from 'react-chartjs-2';
-
-ChartJS.register(
-    CategoryScale,
-    LinearScale,
-    PointElement,
-    LineElement,
-    Title,
-    Tooltip,
-    Legend
-);
-
-export const options = {
-    responsive: true,
-    plugins: {
-        legend: {
-            display: false
-        },
-        title: {
-            display: true,
-            text: 'Chart.js Line Chart',
-        },
-    },
-};
-
-const labels = ['January', 'February', 'March', 'April', 'May', 'June', 'July'];
-
-export const data = {
-    labels,
-    datasets: [
-        {
-            label: 'Dataset 1',
-            data: labels.map(() => Math.floor(Math.random() * 10)),
-            borderColor: 'rgb(255, 99, 132)',
-            backgroundColor: 'rgba(255, 99, 132, 0.5)',
-        },
-        {
-            label: 'Dataset 2',
-            data: labels.map(() => Math.floor(Math.random() * 10)),
-            borderColor: 'rgb(53, 162, 235)',
-            backgroundColor: 'rgba(53, 162, 235, 0.5)',
-        },
-    ],
-};
+import BurndownChart from "./BurndownChart";
 
 function CreateSprintButton(props) {
     const createSprint = () => {
@@ -87,6 +32,28 @@ function CreateSprintButton(props) {
     >Create Sprint</button>);
 }
 
+function StartSprint(props) {
+    const startSprint = () => {
+        fetch("http://localhost:8080/sprints/" + props.sprint.id, {method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: "IN_PROGRESS", current: true })})
+            .then(res => res.json())
+            .then(json => {
+                props.setSprint(json);
+            });
+    };
+
+    if(props.sprint == null || props.sprint.status != "PLANNING") {
+        return null;
+    }
+
+    return (<button
+        onClick={startSprint}
+        title="Learn More"
+        color="#841584"
+    >Start Sprint</button>);
+}
+
 function SyncWithTrelloButton(props) {
     const syncWithTrello = () => {
         fetch("http://localhost:8080/tasks", {method: 'POST'});
@@ -101,10 +68,6 @@ function SyncWithTrelloButton(props) {
 
 function App() {
   const [sprint, setSprint] = useState([]);
-
-  const hasCurrentSprint = () => {
-      return sprint != null;
-  }
 
   useEffect(() => {
     fetch("http://localhost:8080/sprints/current", {method: 'GET'})
@@ -122,10 +85,9 @@ function App() {
     <div className="App">
         <SyncWithTrelloButton></SyncWithTrelloButton>
         <CreateSprintButton sprint={sprint} setSprint={setSprint}></CreateSprintButton>
+        <StartSprint sprint={sprint} setSprint={setSprint}></StartSprint>
 
-      {JSON.stringify(sprint, null, 2)}
-
-        <Line options={options} data={data} />
+        <BurndownChart sprint={sprint}  />
     </div>
   );
 }

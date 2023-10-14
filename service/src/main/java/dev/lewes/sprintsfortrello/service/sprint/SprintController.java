@@ -87,6 +87,7 @@ public class SprintController {
             if(newStatus == SprintStatus.IN_PROGRESS) {
                 sprint.setStartTime(System.currentTimeMillis());
                 sprint.setEstimatedDurationInDays(connectionProperties.getSprintLengthInDays());
+                sprint.setStartingPoints(sprint.getTaskIds().size());
             }
 
             sprint.setStatus(newStatus);
@@ -173,6 +174,16 @@ public class SprintController {
             }
 
             sprintProgress.getDays2RemainingPoints().put(dateToFormatted(newCalendar.getTime()), value);
+        }
+
+        for(int x = 0; x <= sprint.get().getEstimatedDurationInDays(); x++) {
+            Calendar newCalendar = (Calendar) calendar.clone();
+
+            newCalendar.add(Calendar.DAY_OF_YEAR, x);
+
+            double expected = (double) sprint.get().getStartingPoints() * ((double) (sprint.get().getEstimatedDurationInDays() - x) / sprint.get().getEstimatedDurationInDays());
+
+            sprintProgress.getDays2ExpectedPoints().put(dateToFormatted(newCalendar.getTime()), expected);
         }
 
         return ResponseEntity.ok(sprintProgress);
