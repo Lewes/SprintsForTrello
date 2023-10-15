@@ -1,9 +1,11 @@
 package dev.lewes.sprintsfortrello.service.tasks;
 
 import dev.lewes.sprintsfortrello.service.events.EventsManager;
+import dev.lewes.sprintsfortrello.service.tasks.SprintTask.Status;
 import dev.lewes.sprintsfortrello.service.tasks.events.ExistingSprintTaskUpdatedEvent;
 import dev.lewes.sprintsfortrello.service.tasks.events.NewSprintTaskEvent;
 import dev.lewes.sprintsfortrello.service.tasks.events.SprintTaskEvent;
+import dev.lewes.sprintsfortrello.service.tasks.events.SprintTaskRemovedEvent;
 import dev.lewes.sprintsfortrello.service.trello.TrelloCard;
 import dev.lewes.sprintsfortrello.service.trello.TrelloService;
 import java.util.ArrayList;
@@ -54,6 +56,7 @@ public class TaskController {
                     sprintTaskEvents.add(new NewSprintTaskEvent(sprintTask));
                 }
 
+                sprintTask.setName(card.getName().replaceAll("\\[\\d+]", ""));
                 sprintTask.setTrelloCard(card);
                 sprintTask.setPoints(cardToPoints(card));
 
@@ -62,6 +65,24 @@ public class TaskController {
             .collect(Collectors.toList());
 
         sprintTaskRepository.saveAll(tasks);
+
+        List<String> existingTrelloCardIds = cards.stream().map(TrelloCard::getId).toList();
+        List<String> storedTrelloCardIds = new ArrayList<>(sprintTaskRepository.findAll().stream()
+            .filter(task -> task.getStatus() != Status.REMOVED)
+            .map(id -> id.getTrelloCard().getId())
+            .toList());
+
+        storedTrelloCardIds.removeAll(existingTrelloCardIds);
+
+        for(String missingCardId : storedTrelloCardIds) {
+            SprintTask task = sprintTaskRepository.findByTrelloCardId(missingCardId).get();
+
+            task.setStatus(Status.REMOVED);
+
+            sprintTaskRepository.save(task);
+
+            eventsManager.fireEvent(new SprintTaskRemovedEvent(task));
+        }
 
         sprintTaskEvents.forEach(event -> eventsManager.fireEvent(event));
 

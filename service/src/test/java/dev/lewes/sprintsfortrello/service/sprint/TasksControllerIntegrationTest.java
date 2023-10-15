@@ -2,7 +2,9 @@ package dev.lewes.sprintsfortrello.service.sprint;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.lessThan;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -12,6 +14,7 @@ import dev.lewes.sprintsfortrello.service.events.EventsManager;
 import dev.lewes.sprintsfortrello.service.events.LazyListener;
 import dev.lewes.sprintsfortrello.service.sprint.TasksControllerIntegrationTest.TrelloCardsTasksEndpointMock;
 import dev.lewes.sprintsfortrello.service.tasks.SprintTask;
+import dev.lewes.sprintsfortrello.service.tasks.SprintTask.Status;
 import dev.lewes.sprintsfortrello.service.tasks.events.NewSprintTaskEvent;
 import dev.lewes.sprintsfortrello.service.trello.TrelloCard;
 import dev.lewes.sprintsfortrello.service.trello.TrelloProperties;
@@ -68,8 +71,8 @@ public class TasksControllerIntegrationTest {
 
     @Test
     public void addTasksWithNewTrelloCards() {
-        trelloCards.addAll(List.of("Test Card 1",
-            "Test Card 2").stream()
+        trelloCards.addAll(List.of("Test Card 1 [2]",
+            "Test Card 2 [65]").stream()
             .map(name -> new TrelloCard(UUID.randomUUID().toString(), name, trelloProperties.getBacklogColumnId()))
             .toList()
         );
@@ -85,6 +88,14 @@ public class TasksControllerIntegrationTest {
                 .map(SprintTask::getTrelloCard)
                 .toArray())
         );
+
+        assertThat(actualTasks.stream().map(SprintTask::getName).toList(), containsInAnyOrder(actualTasks.stream()
+            .map(card -> removePointsFromName(card.getTrelloCard().getName()))
+            .toArray()));
+    }
+
+    private String removePointsFromName(String name) {
+        return name.replaceAll("\\[\\d+]", "");
     }
 
     @Test
@@ -179,6 +190,36 @@ public class TasksControllerIntegrationTest {
                 .map(SprintTask::getPoints)
                 .toArray())
         );
+    }
+
+    @Test
+    public void deletedTasksAreSetAsRemoved() {
+        long startedTime = System.currentTimeMillis();
+
+        trelloCards.addAll(List.of("Test Card 1 [3]",
+                "Test Card 2 [2]").stream()
+            .map(name -> new TrelloCard(UUID.randomUUID().toString(), name, trelloProperties.getBacklogColumnId()))
+            .toList()
+        );
+
+        List<TrelloCard> oldTrelloCards = new ArrayList<>(trelloCards);
+
+        postTasksEndpoint();
+
+        trelloCards.clear();
+
+        ResponseEntity<SprintTask[]> tasksResponse = postTasksEndpoint();
+
+        List<SprintTask> actualTasks = Arrays.asList(tasksResponse.getBody());
+
+        assertThat(oldTrelloCards.stream().map(card -> Status.REMOVED).toList(), containsInAnyOrder(
+            actualTasks.stream().map(task -> task.getStatus()).toArray()
+        ));
+
+        for(SprintTask sprintTask : tasksResponse.getBody()) {
+            assertThat(sprintTask.getTimeCompleted(), greaterThan(startedTime));
+            assertThat(sprintTask.getTimeCompleted(), lessThan(System.currentTimeMillis()));
+        }
     }
 
     public int cardNameToPoints(TrelloCard card) {

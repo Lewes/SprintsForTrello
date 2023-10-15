@@ -10,6 +10,7 @@ public class SprintTask {
 
     @Id
     private String id;
+    private String name;
     private TrelloCard trelloCard;
     private Status status = Status.UNKNOWN;
     private long timeCompleted;
@@ -19,11 +20,20 @@ public class SprintTask {
         UNKNOWN,
         NOT_STARTED,
         IN_PROGRESS,
-        DONE
+        DONE,
+        REMOVED
     }
 
     public String getId() {
         return id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 
     public TrelloCard getTrelloCard() {

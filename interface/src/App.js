@@ -47,16 +47,18 @@ function SyncWithTrelloButton(props) {
     const syncWithTrello = () => {
         fetch("http://localhost:8080/tasks", {method: 'POST'})
             .then(res => {
-                fetch("http://localhost:8080/sprints/current", {method: 'GET'})
-                    .then(res => {
-                        if(!res.ok) {
-                            throw new Error("No current sprint")
-                        }
+                fetch("http://localhost:8080/sprints/current/tasks", {method: 'POST'}).then(res => {
+                    fetch("http://localhost:8080/sprints/current", {method: 'GET'})
+                        .then(res => {
+                            if (!res.ok) {
+                                throw new Error("No current sprint")
+                            }
 
-                        return res.json();
-                    }).catch(error => {})
-                    .then(json => props.setSprint(json))
-            })
+                            return res.json();
+                        }).catch(error => {
+                    }).then(json => props.setSprint(json))
+                });
+            });
     };
 
     return (<button

@@ -172,7 +172,8 @@ public class SprintController {
             for(SprintTask task : tasks) {
                 if(task.getStatus() == Status.NOT_STARTED ||
                     task.getStatus() == Status.IN_PROGRESS ||
-                    (task.getStatus() == Status.DONE && task.getTimeCompleted() < newCalendar.getTimeInMillis())) {
+                    ((task.getStatus() == Status.DONE || task.getStatus() == Status.REMOVED) && (task.getTimeCompleted() >= newCalendar.getTimeInMillis() &&
+                        task.getTimeCompleted() >= setTimeStampToMidnightTomorrow(newCalendar.getTimeInMillis())))) {
                     value += task.getPoints();
                 }
             }
@@ -191,6 +192,19 @@ public class SprintController {
         }
 
         return ResponseEntity.ok(sprintProgress);
+    }
+
+    private long setTimeStampToMidnightTomorrow(long unixTimestamp) {
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTimeInMillis(unixTimestamp);
+
+        calendar.add(Calendar.DAY_OF_YEAR, 1);
+        calendar.set(Calendar.HOUR_OF_DAY, 0);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+
+        return calendar.getTimeInMillis();
     }
 
     private int daysBetween(Calendar startDate, Calendar endDate) {

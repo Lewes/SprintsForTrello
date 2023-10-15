@@ -45,7 +45,7 @@ function Tasks(props) {
             {tasks.map(task => {
                 return (
                     <tr>
-                        <td>{task.trelloCard.name}</td>
+                        <td>{task.name}</td>
                         <td>{task.points}</td>
                         <td>{task.status}</td>
                     </tr>
