@@ -44,7 +44,8 @@ function BurndownChart(props) {
 
     useEffect(() => {
         if(props.sprint == null ||
-            props.sprint.id == null) {
+            props.sprint.id == null ||
+            props.sprint.status != "IN_PROGRESS") {
             return;
         }
 
@@ -72,14 +73,14 @@ function BurndownChart(props) {
                         {
                             label: 'Expected Burndown',
                             data: Object.keys(json.days2ExpectedPoints).map(key => json.days2ExpectedPoints[key]),
-                            borderColor: 'rgb(255, 99, 132)',
-                            backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                            borderColor: 'rgb(178,178,178)',
+                            backgroundColor: 'rgba(169,169,169,0.5)',
                         },
                         {
                             label: 'Actual Burndown',
                             data: Object.keys(json.days2RemainingPoints).map(key => json.days2RemainingPoints[key]),
-                            borderColor: 'rgb(255, 99, 132)',
-                            backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                            borderColor: 'rgb(115,99,255)',
+                            backgroundColor: 'rgba(99,125,255,0.5)',
                         }
                     ],
                 });
@@ -87,12 +88,15 @@ function BurndownChart(props) {
     }, [props.sprint]);
 
     if(props.sprint == null ||
-        props.sprint.id == null) {
+        props.sprint.id == null ||
+        props.sprint.status != "IN_PROGRESS") {
         return null;
     }
 
     return (
-        <Line options={options} data={remainingTasksData} />
+        <div className="BurndownChart">
+            <Line options={options} data={remainingTasksData} />
+        </div>
     );
 }
 

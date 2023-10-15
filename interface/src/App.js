@@ -1,6 +1,7 @@
 import './App.css';
 import { useState, useEffect } from 'react';
 import BurndownChart from "./BurndownChart";
+import Tasks from "./Tasks.js";
 
 function CreateSprintButton(props) {
     const createSprint = () => {
@@ -12,18 +13,10 @@ function CreateSprintButton(props) {
                 props.setSprint(json);
 
                 fetch("http://localhost:8080/tasks", {method: 'POST'}).then(res => {
-                fetch("http://localhost:8080/sprints/" + json.id + "/tasks", {method: 'POST'})
-                    .then(res => res.json())
-                    .then(json => {
-                        props.setSprint(json);
-                    });
+                    fetch("http://localhost:8080/sprints/" + json.id + "/tasks", {method: 'POST'});
                 });
             });
     };
-
-    if(props.sprint != null) {
-        return null;
-    }
 
     return (<button
         onClick={createSprint}
@@ -43,10 +36,6 @@ function StartSprint(props) {
             });
     };
 
-    if(props.sprint == null || props.sprint.status != "PLANNING") {
-        return null;
-    }
-
     return (<button
         onClick={startSprint}
         title="Learn More"
@@ -56,7 +45,18 @@ function StartSprint(props) {
 
 function SyncWithTrelloButton(props) {
     const syncWithTrello = () => {
-        fetch("http://localhost:8080/tasks", {method: 'POST'});
+        fetch("http://localhost:8080/tasks", {method: 'POST'})
+            .then(res => {
+                fetch("http://localhost:8080/sprints/current", {method: 'GET'})
+                    .then(res => {
+                        if(!res.ok) {
+                            throw new Error("No current sprint")
+                        }
+
+                        return res.json();
+                    }).catch(error => {})
+                    .then(json => props.setSprint(json))
+            })
     };
 
     return (<button
@@ -64,6 +64,40 @@ function SyncWithTrelloButton(props) {
         title="Learn More"
         color="#841584"
     >Sync with Trello</button>);
+}
+
+function NoSprintSelectedButtons(props) {
+    if(props.sprint != null &&
+        props.sprint.id != null) {
+        return;
+    }
+
+    return (
+        <CreateSprintButton setSprint={props.setSprint}></CreateSprintButton>
+    )
+}
+
+function SprintSelectedButNotStarted(props) {
+    if(props.sprint == null ||
+        props.sprint.id == null ||
+        props.sprint.status != "PLANNING") {
+        return;
+    }
+
+    return (
+        <StartSprint sprint={props.sprint} setSprint={props.setSprint}></StartSprint>
+    )
+}
+
+function SprintSelectedAndInProgress(props) {
+    if(props.sprint == null ||
+        props.sprint.id == null) {
+        return;
+    }
+
+    return (
+        <SyncWithTrelloButton setSprint={props.setSprint} ></SyncWithTrelloButton>
+    )
 }
 
 function App() {
@@ -83,11 +117,17 @@ function App() {
 
   return (
     <div className="App">
-        <SyncWithTrelloButton></SyncWithTrelloButton>
-        <CreateSprintButton sprint={sprint} setSprint={setSprint}></CreateSprintButton>
-        <StartSprint sprint={sprint} setSprint={setSprint}></StartSprint>
+        <h1>Sprints for Trello</h1>
+        <div className="Container">
+            <div className="Buttons">
+                <NoSprintSelectedButtons sprint={sprint} setSprint={setSprint} ></NoSprintSelectedButtons>
+                <SprintSelectedButNotStarted sprint={sprint} setSprint={setSprint} ></SprintSelectedButNotStarted>
+                <SprintSelectedAndInProgress sprint={sprint} setSprint={setSprint} ></SprintSelectedAndInProgress>
+            </div>
 
-        <BurndownChart sprint={sprint}  />
+            <BurndownChart sprint={sprint}  />
+            <Tasks sprint={sprint}></Tasks>
+        </div>
     </div>
   );
 }
