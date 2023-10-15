@@ -39,12 +39,14 @@ function Tasks(props) {
         <table className="Tasks">
             <tr className="Header">
                 <th>Task</th>
+                <th>Points</th>
                 <th>Status</th>
             </tr>
             {tasks.map(task => {
                 return (
                     <tr>
                         <td>{task.trelloCard.name}</td>
+                        <td>{task.points}</td>
                         <td>{task.status}</td>
                     </tr>
                 );

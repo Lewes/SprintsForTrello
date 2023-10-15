@@ -87,7 +87,11 @@ public class SprintController {
             if(newStatus == SprintStatus.IN_PROGRESS) {
                 sprint.setStartTime(System.currentTimeMillis());
                 sprint.setEstimatedDurationInDays(connectionProperties.getSprintLengthInDays());
-                sprint.setStartingPoints(sprint.getTaskIds().size());
+
+                sprint.setStartingPoints(sprint.getTaskIds().stream()
+                    .map(taskId -> sprintTaskRepository.findById(taskId).get())
+                    .mapToInt(task -> task.getPoints())
+                    .sum());
             }
 
             sprint.setStatus(newStatus);
@@ -169,7 +173,7 @@ public class SprintController {
                 if(task.getStatus() == Status.NOT_STARTED ||
                     task.getStatus() == Status.IN_PROGRESS ||
                     (task.getStatus() == Status.DONE && task.getTimeCompleted() < newCalendar.getTimeInMillis())) {
-                    value++;
+                    value += task.getPoints();
                 }
             }
 

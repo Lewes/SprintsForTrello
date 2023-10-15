@@ -9,6 +9,8 @@ import dev.lewes.sprintsfortrello.service.trello.TrelloService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -53,6 +55,7 @@ public class TaskController {
                 }
 
                 sprintTask.setTrelloCard(card);
+                sprintTask.setPoints(cardToPoints(card));
 
                 return sprintTask;
             })
@@ -63,6 +66,17 @@ public class TaskController {
         sprintTaskEvents.forEach(event -> eventsManager.fireEvent(event));
 
         return ResponseEntity.ok(sprintTaskRepository.findAll());
+    }
+
+    public int cardToPoints(TrelloCard card) {
+        Pattern pattern = Pattern.compile("\\[(.*?)]");
+        Matcher matcher = pattern.matcher(card.getName());
+
+        if(matcher.find()) {
+            return Integer.parseInt(matcher.group(1));
+        }
+
+        return 0;
     }
 
 }

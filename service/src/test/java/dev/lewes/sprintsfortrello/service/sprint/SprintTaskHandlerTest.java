@@ -98,7 +98,7 @@ public class SprintTaskHandlerTest {
 
     private static void createGivenNumberOfTrelloCardsInColumn(int amount, String columnId) {
         for(int x = 0; x < amount; x++) {
-            trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), "Test Card" + x, columnId));
+            trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), "Test Card " + x + " [3]", columnId));
         }
     }
 
@@ -193,13 +193,13 @@ public class SprintTaskHandlerTest {
         Sprint sprint = createResponseEntity.getBody();
 
         addAllTasksToSprint(sprint.getId());
-        startSprintAndReturn(sprint.getId());
+        sprint = startSprintAndReturn(sprint.getId());
 
         ResponseEntity<SprintProgress> sprintProgressResponse = getSprintProgress(sprint.getId());
         SprintProgress sprintProgress = sprintProgressResponse.getBody();
 
         assertThat(sprintProgress.getDays2RemainingPoints().size(), is(1));
-        assertThat(sprintProgress.getDays2RemainingPoints().values().toArray()[0], is(3));
+        assertThat(sprintProgress.getDays2RemainingPoints().values().toArray()[0], is(sprint.getStartingPoints()));
 
         for(String date : sprintProgress.getDays2RemainingPoints().keySet()) {
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
@@ -210,7 +210,7 @@ public class SprintTaskHandlerTest {
             ));
 
             assertThat(parsedDate.getTime() < System.currentTimeMillis(), is(true));
-            assertThat(parsedDate.getTime() >= sprint.getStartTime(), is(true));
+            assertThat(parsedDate.getTime() >= setTimeStampToMidnight(sprint.getStartTime()), is(true));
         }
     }
 
@@ -296,7 +296,7 @@ public class SprintTaskHandlerTest {
                 if(task.getStatus() == Status.IN_PROGRESS ||
                     task.getStatus() == Status.NOT_STARTED ||
                     (task.getStatus() == Status.DONE && task.getTimeCompleted() < setTimeStampToMidnight(parsedDate.getTime()))) {
-                    expectedValue++;
+                    expectedValue += task.getPoints();
                 }
             }
 

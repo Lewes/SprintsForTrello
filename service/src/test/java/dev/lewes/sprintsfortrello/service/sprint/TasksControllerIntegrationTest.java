@@ -20,6 +20,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -154,6 +156,40 @@ public class TasksControllerIntegrationTest {
                 .map(SprintTask::getTrelloCard)
                 .toArray())
         );
+    }
+
+    @Test
+    public void addedTasksParsesPoints() {
+        trelloCards.addAll(List.of("Test Card 1 [3]",
+                "Test Card 2 [2]").stream()
+            .map(name -> new TrelloCard(UUID.randomUUID().toString(), name, trelloProperties.getBacklogColumnId()))
+            .toList()
+        );
+
+        ResponseEntity<SprintTask[]> tasksResponse = postTasksEndpoint();
+
+        assertThat(tasksResponse.getStatusCode().is2xxSuccessful(), is(true));
+
+        List<SprintTask> actualTasks = Arrays.asList(tasksResponse.getBody());
+
+        assertThat(trelloCards.stream()
+            .map(this::cardNameToPoints)
+            .toList(), containsInAnyOrder(
+            actualTasks.stream()
+                .map(SprintTask::getPoints)
+                .toArray())
+        );
+    }
+
+    public int cardNameToPoints(TrelloCard card) {
+        Pattern pattern = Pattern.compile("\\[(.*?)]");
+        Matcher matcher = pattern.matcher(card.getName());
+
+        if(matcher.find()) {
+            return Integer.parseInt(matcher.group(1));
+        }
+
+        return 0;
     }
 
     private ResponseEntity<SprintTask[]> postTasksEndpoint() {

@@ -194,6 +194,10 @@ public class SprintControllerIntegrationTest {
         assertThat(startSprintResponse.getBody().getStartTime() > preStartTime &&
             startSprintResponse.getBody().getStartTime() < System.currentTimeMillis(), is(true));
         assertThat(startSprintResponse.getBody().getEstimatedDurationInDays(), is(trelloProperties.getSprintLengthInDays()));
+
+        ResponseEntity<SprintTask[]> sprintTasksResponse = restUtils.getAtUrl("sprints/" + sprintId + "/tasks", SprintTask[].class);
+
+        assertThat(startSprintResponse.getBody().getStartingPoints(), is(Arrays.stream(sprintTasksResponse.getBody()).mapToInt(task -> task.getPoints()).sum()));
     }
 
     @Test
