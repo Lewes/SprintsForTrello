@@ -1,6 +1,7 @@
 package dev.lewes.sprintsfortrello.service.sprint;
 
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -85,6 +86,34 @@ public class Sprint {
 
     public void setStartingPoints(int startingPoints) {
         this.startingPoints = startingPoints;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Sprint sprint = (Sprint) o;
+
+        return startTime == sprint.startTime &&
+            endTime == sprint.endTime &&
+            current == sprint.current &&
+            estimatedDurationInDays == sprint.estimatedDurationInDays &&
+            startingPoints == sprint.startingPoints &&
+            Objects.equals(id, sprint.id) &&
+            Objects.equals(name, sprint.name) &&
+            status == sprint.status &&
+            Objects.equals(taskIds, sprint.taskIds);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, name, startTime, endTime, status, current, taskIds, estimatedDurationInDays, startingPoints);
     }
 
     enum SprintStatus {
