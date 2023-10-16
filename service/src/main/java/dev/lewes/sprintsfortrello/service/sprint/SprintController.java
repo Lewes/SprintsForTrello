@@ -73,7 +73,7 @@ public class SprintController {
     public ResponseEntity<Sprint> updateSprint(@PathVariable String id, @RequestBody Map<String, Object> params) {
         Sprint sprint = getSprintByIdOrSynonym(id).get();
 
-        boolean current = (boolean) params.getOrDefault("current", false);
+        boolean current = (boolean) params.getOrDefault("current", sprint.isCurrent());
         sprint.setCurrent(current);
 
         if(params.containsKey("status")) {
@@ -85,13 +85,7 @@ public class SprintController {
             }
 
             if(newStatus == SprintStatus.IN_PROGRESS) {
-                sprint.setStartTime(System.currentTimeMillis());
-                sprint.setEstimatedDurationInDays(connectionProperties.getSprintLengthInDays());
-
-                sprint.setStartingPoints(sprint.getTaskIds().stream()
-                    .map(taskId -> sprintTaskRepository.findById(taskId).get())
-                    .mapToInt(task -> task.getPoints())
-                    .sum());
+                startSprint(sprint);
             }
 
             sprint.setStatus(newStatus);
@@ -102,6 +96,19 @@ public class SprintController {
         return ResponseEntity.ok(sprint);
     }
 
+    private void startSprint(Sprint sprint) {
+        sprint.setStartTime(System.currentTimeMillis());
+        sprint.setEstimatedDurationInDays(connectionProperties.getSprintLengthInDays());
+        sprint.setStartingPoints(getTotalPointsInSprint(sprint));
+    }
+
+    private int getTotalPointsInSprint(Sprint sprint) {
+        return sprint.getTaskIds().stream()
+            .map(taskId -> sprintTaskRepository.findById(taskId).get())
+            .mapToInt(SprintTask::getPoints)
+            .sum();
+    }
+
     @GetMapping("sprints/{id}/tasks")
     public ResponseEntity<List<SprintTask>> getSprintTasks(@PathVariable String id) {
         Optional<Sprint> sprint = getSprintByIdOrSynonym(id);
@@ -110,11 +117,15 @@ public class SprintController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
 
-        List<SprintTask> list = sprint.get().getTaskIds().stream()
-            .map(taskId -> sprintTaskRepository.findById(taskId).get())
-            .toList();
+        List<SprintTask> list = getTasksInSprint(sprint);
 
         return ResponseEntity.ok(list);
+    }
+
+    private List<SprintTask> getTasksInSprint(Optional<Sprint> sprint) {
+        return sprint.get().getTaskIds().stream()
+            .map(taskId -> sprintTaskRepository.findById(taskId).get())
+            .toList();
     }
 
     @PostMapping("sprints/{id}/tasks")
@@ -125,18 +136,17 @@ public class SprintController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
 
-        sprint.get().getTaskIds().addAll(sprintTaskRepository.findAll().stream()
-            .filter(task -> task.getTrelloCard().getIdList().equals(connectionProperties.getBacklogColumnId()))
-            .map(SprintTask::getId)
-            .toList());
-
+        sprint.get().getTaskIds().addAll(getTasksInBacklog());
         sprintRepository.save(sprint.get());
 
-        List<SprintTask> list = sprint.get().getTaskIds().stream()
-            .map(taskId -> sprintTaskRepository.findById(taskId).get())
-            .toList();
+        return ResponseEntity.ok(getTasksInSprint(sprint));
+    }
 
-        return ResponseEntity.ok(list);
+    private List<String> getTasksInBacklog() {
+        return sprintTaskRepository.findAll().stream()
+            .filter(task -> task.getTrelloCard().getIdList().equals(connectionProperties.getBacklogColumnId()))
+            .map(SprintTask::getId)
+            .toList();
     }
 
     @GetMapping("sprints/{id}/progress")
@@ -156,42 +166,46 @@ public class SprintController {
         Calendar calendar = Calendar.getInstance();
         calendar.setTimeInMillis(sprint.get().getStartTime());
 
-        List<SprintTask> tasks = sprint.get().getTaskIds().stream()
-            .map(taskId -> sprintTaskRepository.findById(taskId).get())
-            .toList();
+        List<SprintTask> tasks = getTasksInSprint(sprint);
 
-        int daysCompleted = daysBetween(calendar, Calendar.getInstance());
+        int daysCompleted = getDaysBetween(calendar, Calendar.getInstance());
 
         for(int x = 0; x <= daysCompleted; x++) {
-            Calendar newCalendar = (Calendar) calendar.clone();
+            Calendar calendarOnDay = (Calendar) calendar.clone();
+            calendarOnDay.add(Calendar.DAY_OF_YEAR, x);
 
-            newCalendar.add(Calendar.DAY_OF_YEAR, x);
-
-            int value = 0;
+            int remainingPointsOnDay = 0;
 
             for(SprintTask task : tasks) {
-                if(task.getStatus() == Status.NOT_STARTED ||
-                    task.getStatus() == Status.IN_PROGRESS ||
-                    ((task.getStatus() == Status.DONE || task.getStatus() == Status.REMOVED) && (task.getTimeCompleted() >= newCalendar.getTimeInMillis() &&
-                        task.getTimeCompleted() >= setTimeStampToMidnightTomorrow(newCalendar.getTimeInMillis())))) {
-                    value += task.getPoints();
+                if(isTaskIncompleteBeforeDate(task, calendarOnDay)) {
+                    remainingPointsOnDay += task.getPoints();
                 }
             }
 
-            sprintProgress.getDays2RemainingPoints().put(dateToFormatted(newCalendar.getTime()), value);
+            sprintProgress.getDays2RemainingPoints().put(formatDate(calendarOnDay.getTime()), remainingPointsOnDay);
         }
 
-        for(int x = 0; x <= sprint.get().getEstimatedDurationInDays(); x++) {
-            Calendar newCalendar = (Calendar) calendar.clone();
+        int estimatedSprintDuration = sprint.get().getEstimatedDurationInDays();
 
-            newCalendar.add(Calendar.DAY_OF_YEAR, x);
+        for(int x = 0; x <= estimatedSprintDuration; x++) {
+            Calendar calendarOnDay = (Calendar) calendar.clone();
+            calendarOnDay.add(Calendar.DAY_OF_YEAR, x);
 
-            double expected = (double) sprint.get().getStartingPoints() * ((double) (sprint.get().getEstimatedDurationInDays() - x) / sprint.get().getEstimatedDurationInDays());
+            int startingPoints = sprint.get().getStartingPoints();
+            double expected = startingPoints * ((double) (estimatedSprintDuration - x) / estimatedSprintDuration);
 
-            sprintProgress.getDays2ExpectedPoints().put(dateToFormatted(newCalendar.getTime()), expected);
+            sprintProgress.getDays2ExpectedPoints().put(formatDate(calendarOnDay.getTime()), expected);
         }
 
         return ResponseEntity.ok(sprintProgress);
+    }
+
+    private boolean isTaskIncompleteBeforeDate(SprintTask task, Calendar newCalendar) {
+        return task.getStatus() == Status.NOT_STARTED ||
+            task.getStatus() == Status.IN_PROGRESS ||
+            ((task.getStatus() == Status.DONE || task.getStatus() == Status.REMOVED) &&
+                (task.getTimeCompleted() >= newCalendar.getTimeInMillis() &&
+                task.getTimeCompleted() >= setTimeStampToMidnightTomorrow(newCalendar.getTimeInMillis())));
     }
 
     private long setTimeStampToMidnightTomorrow(long unixTimestamp) {
@@ -207,17 +221,15 @@ public class SprintController {
         return calendar.getTimeInMillis();
     }
 
-    private int daysBetween(Calendar startDate, Calendar endDate) {
+    private int getDaysBetween(Calendar startDate, Calendar endDate) {
         long end = endDate.getTimeInMillis();
         long start = startDate.getTimeInMillis();
 
         return (int) TimeUnit.MILLISECONDS.toDays(Math.abs(end - start));
     }
 
-    private String dateToFormatted(Date date) {
-        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
-
-        return simpleDateFormat.format(date);
+    private String formatDate(Date date) {
+        return new SimpleDateFormat("yyyy-MM-dd").format(date);
     }
 
 }

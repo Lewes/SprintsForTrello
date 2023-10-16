@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -62,15 +61,12 @@ public class TaskController {
 
                 return sprintTask;
             })
-            .collect(Collectors.toList());
+            .toList();
 
         sprintTaskRepository.saveAll(tasks);
 
         List<String> existingTrelloCardIds = cards.stream().map(TrelloCard::getId).toList();
-        List<String> storedTrelloCardIds = new ArrayList<>(sprintTaskRepository.findAll().stream()
-            .filter(task -> task.getStatus() != Status.REMOVED)
-            .map(id -> id.getTrelloCard().getId())
-            .toList());
+        List<String> storedTrelloCardIds = new ArrayList<>(getTasksNotMarkedAsRemoved());
 
         storedTrelloCardIds.removeAll(existingTrelloCardIds);
 
@@ -87,6 +83,13 @@ public class TaskController {
         sprintTaskEvents.forEach(event -> eventsManager.fireEvent(event));
 
         return ResponseEntity.ok(sprintTaskRepository.findAll());
+    }
+
+    private List<String> getTasksNotMarkedAsRemoved() {
+        return sprintTaskRepository.findAll().stream()
+            .filter(task -> task.getStatus() != Status.REMOVED)
+            .map(id -> id.getTrelloCard().getId())
+            .toList();
     }
 
     public int cardToPoints(TrelloCard card) {

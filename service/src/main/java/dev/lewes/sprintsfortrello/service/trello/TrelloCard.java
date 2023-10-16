@@ -1,5 +1,7 @@
 package dev.lewes.sprintsfortrello.service.trello;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 import org.springframework.data.annotation.Id;
 
@@ -10,11 +12,10 @@ public class TrelloCard {
     private String name;
     private String idList;
 
-    private TrelloCard() {
-
-    }
-
-    public TrelloCard(String id, String name, String idList) {
+    @JsonCreator
+    public TrelloCard(@JsonProperty("id") String id,
+        @JsonProperty("name") String name,
+        @JsonProperty("idList") String idList) {
         this.id = id;
         this.name = name;
         this.idList = idList;

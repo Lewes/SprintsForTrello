@@ -1,5 +1,7 @@
 package dev.lewes.sprintsfortrello.service.sprint;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -14,7 +16,6 @@ public class Sprint {
     private String name;
 
     private long startTime;
-    private long endTime;
 
     private SprintStatus status;
     private boolean current;
@@ -23,11 +24,9 @@ public class Sprint {
     private int estimatedDurationInDays;
     private int startingPoints;
 
-    private Sprint() {
-
-    }
-
-    public Sprint(String name, SprintStatus status) {
+    @JsonCreator
+    public Sprint(@JsonProperty("name") String name,
+        @JsonProperty("status") SprintStatus status) {
         this.name = name;
         this.status = status;
     }
@@ -46,10 +45,6 @@ public class Sprint {
 
     public void setStartTime(long startTime) {
         this.startTime = startTime;
-    }
-
-    public long getEndTime() {
-        return endTime;
     }
 
     public SprintStatus getStatus() {
@@ -101,7 +96,6 @@ public class Sprint {
         Sprint sprint = (Sprint) o;
 
         return startTime == sprint.startTime &&
-            endTime == sprint.endTime &&
             current == sprint.current &&
             estimatedDurationInDays == sprint.estimatedDurationInDays &&
             startingPoints == sprint.startingPoints &&
@@ -113,7 +107,7 @@ public class Sprint {
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, name, startTime, endTime, status, current, taskIds, estimatedDurationInDays, startingPoints);
+        return Objects.hash(id, name, startTime, status, current, taskIds, estimatedDurationInDays, startingPoints);
     }
 
     enum SprintStatus {
