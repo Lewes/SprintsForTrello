@@ -50,9 +50,6 @@ public class SprintControllerIntegrationTest {
     private final TestRestTemplate restTemplate = new TestRestTemplate();
 
     @Autowired
-    private SprintRepository sprintRepository;
-
-    @Autowired
     private TrelloProperties trelloProperties;
 
     public static List<TrelloCard> trelloCards = new ArrayList<>();
@@ -70,34 +67,39 @@ public class SprintControllerIntegrationTest {
 
     @Test
     public void createSprint() {
-        String sprintName = "Test Sprint 1";
-        
-        ResponseEntity<Sprint> responseEntity = createSprintWithName(sprintName);
+        ResponseEntity<Sprint> createdSprint = createTestSprintAndReturn();
+        ResponseEntity<Sprint> fetchSprint = restUtils.getAtUrl("sprints/" + createdSprint.getBody().getId(), Sprint.class);;
 
-        assertThat(responseEntity.getStatusCode().is2xxSuccessful(), is(true));
-        assertThat(sprintRepository.findByName(sprintName), hasProperty("present", is(true)));
+        assertThat(fetchSprint.getBody(), is(createdSprint.getBody()));
     }
 
     @Test
     public void getNonExistentSprintReturns404() {
-        ResponseEntity<Sprint> currentSprintResponse = restUtils.getAtUrl("sprints/" + UUID.randomUUID(), Sprint.class);
+        ResponseEntity<Sprint> nonExistentSprintResponse = restUtils.getAtUrl("sprints/" + UUID.randomUUID(), Sprint.class);
 
-        assertThat(currentSprintResponse.getStatusCode().is4xxClientError(), is(true));
+        assertThatResponseStatusCodeIsBadRequest(nonExistentSprintResponse);
     }
 
     @Test
     public void createSprintAsCurrent() {
-        ResponseEntity<Sprint> responseEntity = restUtils.postAtUrl("sprints",
+        ResponseEntity<Sprint> createSprintResponse = restUtils.postAtUrl("sprints",
             Map.of("name", "Test Sprint 1",
                 "current", true),
             Sprint.class);
+        Sprint createdSprint = createSprintResponse.getBody();
 
-        assertThat(responseEntity.getStatusCode().is2xxSuccessful(), is(true));
+        ResponseEntity<Sprint> currentSprintResponse = getCurrentSprint();
+        Sprint currentSprint = currentSprintResponse.getBody();
 
-        ResponseEntity<Sprint> currentSprintResponse = restUtils.getAtUrl("sprints/current", Sprint.class);
+        assertThat(currentSprint, is(createdSprint));
+    }
 
-        assertThat(responseEntity.getStatusCode().is2xxSuccessful(), is(true));
-        assertThat(responseEntity.getBody().getId(), is(currentSprintResponse.getBody().getId()));
+    private static void assertThatResponseStatusCodeIsOk(ResponseEntity<?> createSprintResponse) {
+        assertThat(createSprintResponse.getStatusCode().is2xxSuccessful(), is(true));
+    }
+
+    private ResponseEntity<Sprint> getCurrentSprint() {
+        return restUtils.getAtUrl("sprints/current", Sprint.class);
     }
 
     @Test
@@ -108,49 +110,64 @@ public class SprintControllerIntegrationTest {
         ).map(path -> restUtils.getAtUrl(path, String.class)).toList();
 
         for(ResponseEntity<String> sprintResponse : sprintResponses) {
-            assertThat(sprintResponse.getStatusCode().is4xxClientError(), is(true));
+            assertThatResponseStatusCodeIsBadRequest(sprintResponse);
         }
+    }
+
+    private static void assertThatResponseStatusCodeIsBadRequest(ResponseEntity<?> sprintResponse) {
+        assertThat(sprintResponse.getStatusCode().is4xxClientError(), is(true));
     }
 
     @Test
     public void createSprintAndSetAsCurrentAndFetchCurrent() {
-        ResponseEntity<Sprint> responseEntity = createSprintWithName("Test Sprint 1");
-        String sprintId = responseEntity.getBody().getId();
+        Sprint createdSprint = createTestSprintAndReturn().getBody();
 
-        ResponseEntity<Sprint> setSprintAsCurrentResponse = restTemplate.exchange(patch(URI.create(restUtils.buildApiUrl("sprints/" + sprintId)))
+        ResponseEntity<Sprint> setSprintAsCurrentResponse = setSprintAsCurrent(createdSprint.getId());
+
+        ResponseEntity<Sprint> currentSprintResponse = getCurrentSprint();
+        assertThat(currentSprintResponse.getBody(), is(setSprintAsCurrentResponse.getBody()));
+    }
+
+    private ResponseEntity<Sprint> createTestSprintAndReturn() {
+        return createSprintWithName("Test Sprint 1");
+    }
+
+    private ResponseEntity<Sprint> setSprintAsCurrent(String sprintId) {
+        return restTemplate.exchange(patch(URI.create(restUtils.buildApiUrl("sprints/" + sprintId)))
             .accept(MediaType.APPLICATION_JSON)
             .body(Map.of("current", true)), Sprint.class);
-
-        assertThat(setSprintAsCurrentResponse.getStatusCode().is2xxSuccessful(), is(true));
-
-        ResponseEntity<Sprint> currentSprintResponse = restUtils.getAtUrl("sprints/current", Sprint.class);
-
-        assertThat(currentSprintResponse.getStatusCode().is2xxSuccessful(), is(true));
-        assertThat(currentSprintResponse.getBody().getId(), is(sprintId));
     }
 
     @Test
     public void updateSprintWithOnlyBackloggedTrelloCards() {
-        ResponseEntity<Sprint> createResponseEntity = createSprintWithName("Test Sprint 1");
-        String id = createResponseEntity.getBody().getId();
+        ResponseEntity<Sprint> createResponseEntity = createTestSprintAndReturn();
+        String sprintId = createResponseEntity.getBody().getId();
 
-        List.of("Test Card 1",
-                "Test Card 2",
-                "Test Card 3")
-            .forEach(name -> trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), name, trelloProperties.getBacklogColumnId())));
+        generateTestTrelloCards();
 
-        trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), "Completed Test Card 1", trelloProperties.getDoneColumnId()));
+        trelloCards.add(new TrelloCard(UUID.randomUUID().toString(),
+            "Completed Test Card 1",
+            trelloProperties.getDoneColumnId()));
 
-        ResponseEntity<SprintTask[]> tasks = invokeSyncTasksWithTrelloEndpoint();
-        ResponseEntity<SprintTask[]> sprintTasksResponse = restUtils.postAtUrl("sprints/" + id + "/tasks", Map.of("name", "Test Sprint 1"), SprintTask[].class);
+        ResponseEntity<SprintTask[]> tasks = syncTasksWithTrello();
+        ResponseEntity<SprintTask[]> sprintTasksResponse = addCardsToSprint(sprintId);
 
-        assertThat(sprintTasksResponse.getStatusCode().is2xxSuccessful(), is(true));
+        assertThatResponseStatusCodeIsOk(sprintTasksResponse);
 
         assertThat(Arrays.stream(sprintTasksResponse.getBody()).toList(), containsInAnyOrder(
             Arrays.stream(tasks.getBody())
                 .filter(task -> task.getTrelloCard().getIdList().equals(trelloProperties.getBacklogColumnId()))
                 .toArray()
         ));
+    }
+
+    private void generateTestTrelloCards() {
+        List.of("Test Card 1",
+                "Test Card 2",
+                "Test Card 3")
+            .forEach(name -> trelloCards.add(new TrelloCard(UUID.randomUUID().toString(),
+                name,
+                trelloProperties.getBacklogColumnId())));
     }
 
     @Test
@@ -162,30 +179,34 @@ public class SprintControllerIntegrationTest {
 
     @Test
     public void createAndGetSprintTasks() {
-        ResponseEntity<Sprint> createResponseEntity = createSprintWithName("Test Sprint 1");
-        String id = createResponseEntity.getBody().getId();
+        ResponseEntity<Sprint> createResponseEntity = createTestSprintAndReturn();
+        String sprintId = createResponseEntity.getBody().getId();
 
-        List.of("Test Card 1",
-                "Test Card 2",
-                "Test Card 3")
-            .forEach(name -> trelloCards.add(new TrelloCard(UUID.randomUUID().toString(), name, trelloProperties.getBacklogColumnId())));
+        generateTestTrelloCards();
 
-        ResponseEntity<SprintTask[]> tasks = invokeSyncTasksWithTrelloEndpoint();
-        restUtils.postAtUrl("sprints/" + id + "/tasks", null, SprintTask[].class);
+        ResponseEntity<SprintTask[]> tasks = syncTasksWithTrello();
+        addCardsToSprint(sprintId);
 
-        ResponseEntity<SprintTask[]> response = restUtils.getAtUrl("sprints/" + id + "/tasks", SprintTask[].class);
-        assertThat(response.getStatusCode().is2xxSuccessful(), is(true));
+        ResponseEntity<SprintTask[]> response = getTasksInSprint(sprintId);
 
         assertThat(Arrays.stream(response.getBody()).toList(), containsInAnyOrder(
-            Arrays.stream(tasks.getBody()).toArray()
+            tasks.getBody()
         ));
+    }
+
+    private ResponseEntity<SprintTask[]> getTasksInSprint(String sprintId) {
+        return restUtils.getAtUrl("sprints/" + sprintId + "/tasks", SprintTask[].class);
+    }
+
+    private ResponseEntity<SprintTask[]> addCardsToSprint(String sprintId) {
+        return restUtils.postAtUrl("sprints/" + sprintId + "/tasks", null, SprintTask[].class);
     }
 
     @Test
     public void startSprint() {
         long preStartTime = System.currentTimeMillis();
 
-        ResponseEntity<Sprint> createResponse = createSprintWithName("Test Sprint 1");
+        ResponseEntity<Sprint> createResponse = createTestSprintAndReturn();
         String sprintId = createResponse.getBody().getId();
 
         ResponseEntity<Sprint> startSprintResponse = changeSprintStatus(sprintId, SprintStatus.IN_PROGRESS);
@@ -195,14 +216,14 @@ public class SprintControllerIntegrationTest {
             startSprintResponse.getBody().getStartTime() < System.currentTimeMillis(), is(true));
         assertThat(startSprintResponse.getBody().getEstimatedDurationInDays(), is(trelloProperties.getSprintLengthInDays()));
 
-        ResponseEntity<SprintTask[]> sprintTasksResponse = restUtils.getAtUrl("sprints/" + sprintId + "/tasks", SprintTask[].class);
+        ResponseEntity<SprintTask[]> sprintTasksResponse = getTasksInSprint(sprintId);
 
         assertThat(startSprintResponse.getBody().getStartingPoints(), is(Arrays.stream(sprintTasksResponse.getBody()).mapToInt(task -> task.getPoints()).sum()));
     }
 
     @Test
     public void startingSprintTwiceReturnsBadRequest() {
-        ResponseEntity<Sprint> createResponse = createSprintWithName("Test Sprint 1");
+        ResponseEntity<Sprint> createResponse = createTestSprintAndReturn();
         String sprintId = createResponse.getBody().getId();
 
         changeSprintStatus(sprintId, SprintStatus.IN_PROGRESS);
@@ -213,7 +234,7 @@ public class SprintControllerIntegrationTest {
 
     @Test
     public void startingSprintWhenItsFinishedReturnsBadRequest() {
-        ResponseEntity<Sprint> createResponse = createSprintWithName("Test Sprint 1");
+        ResponseEntity<Sprint> createResponse = createTestSprintAndReturn();
         String sprintId = createResponse.getBody().getId();
 
         changeSprintStatus(sprintId, SprintStatus.IN_PROGRESS);
@@ -233,7 +254,7 @@ public class SprintControllerIntegrationTest {
         return restUtils.postAtUrl("sprints", Map.of("name", name), Sprint.class);
     }
 
-    private ResponseEntity<SprintTask[]> invokeSyncTasksWithTrelloEndpoint() {
+    private ResponseEntity<SprintTask[]> syncTasksWithTrello() {
         return restUtils.postAtUrl("tasks", null, SprintTask[].class);
     }
 
