@@ -3,6 +3,14 @@ import { useState, useEffect } from 'react';
 import BurndownChart from "./BurndownChart";
 import Tasks from "./Tasks.js";
 
+function addTasksToSprint(sprintId) {
+    return fetch("http://localhost:8080/sprints/" + sprintId + "/tasks", {method: 'POST'});
+}
+
+function syncTasksFromTrello() {
+    return fetch("http://localhost:8080/tasks", {method: 'POST'});
+}
+
 function CreateSprintButton(props) {
     const createSprint = () => {
         fetch("http://localhost:8080/sprints", {method: 'POST',
@@ -12,9 +20,7 @@ function CreateSprintButton(props) {
             .then(json => {
                 props.setSprint(json);
 
-                fetch("http://localhost:8080/tasks", {method: 'POST'}).then(res => {
-                    fetch("http://localhost:8080/sprints/" + json.id + "/tasks", {method: 'POST'});
-                });
+                syncTasksFromTrello().then(() => addTasksToSprint(json.id));
             });
     };
 
@@ -43,22 +49,27 @@ function StartSprint(props) {
     >Start Sprint</button>);
 }
 
+function getCurrentSprint() {
+    return fetch("http://localhost:8080/sprints/current", {method: 'GET'});
+}
+
+function addTasksToCurrentSprint() {
+    return syncTasksFromTrello("current");
+}
+
 function SyncWithTrelloButton(props) {
     const syncWithTrello = () => {
-        fetch("http://localhost:8080/tasks", {method: 'POST'})
-            .then(res => {
-                fetch("http://localhost:8080/sprints/current/tasks", {method: 'POST'}).then(res => {
-                    fetch("http://localhost:8080/sprints/current", {method: 'GET'})
-                        .then(res => {
-                            if (!res.ok) {
-                                throw new Error("No current sprint")
-                            }
+        syncTasksFromTrello().then(() => {
+            addTasksToCurrentSprint().then(() => {
+                getCurrentSprint().then(res => {
+                    if (!res.ok) {
+                        throw new Error("No current sprint")
+                    }
 
-                            return res.json();
-                        }).catch(error => {
-                    }).then(json => props.setSprint(json))
-                });
+                    return res.json();
+                }).catch(() => {}).then(json => props.setSprint(json))
             });
+        });
     };
 
     return (<button
@@ -82,7 +93,7 @@ function NoSprintSelectedButtons(props) {
 function SprintSelectedButNotStarted(props) {
     if(props.sprint == null ||
         props.sprint.id == null ||
-        props.sprint.status != "PLANNING") {
+        props.sprint.status !== "PLANNING") {
         return;
     }
 
@@ -106,15 +117,13 @@ function App() {
   const [sprint, setSprint] = useState([]);
 
   useEffect(() => {
-    fetch("http://localhost:8080/sprints/current", {method: 'GET'})
-        .then(res => {
-          if(!res.ok) {
+    getCurrentSprint().then(res => {
+        if(!res.ok) {
             throw new Error("No current sprint")
-          }
+        }
 
-          return res.json();
-        }).catch(error => {})
-        .then(json => setSprint(json))
+        return res.json();
+    }).catch(() => {}).then(json => setSprint(json))
   }, []);
 
   return (

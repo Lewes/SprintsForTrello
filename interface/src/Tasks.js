@@ -1,5 +1,9 @@
 import React, {useEffect, useState} from 'react';
 
+function getSprintTasks(sprintId) {
+    return fetch("http://localhost:8080/sprints/" + sprintId + "/tasks", {method: 'GET'});
+}
+
 function Tasks(props) {
     const [tasks, setTasks] = useState([]);
 
@@ -9,7 +13,7 @@ function Tasks(props) {
             return;
         }
 
-        fetch("http://localhost:8080/sprints/" + props.sprint.id + "/tasks", {method: 'GET'})
+        getSprintTasks(props.sprint.id)
             .then(res => {
                 if(!res.ok) {
                     throw new Error("No current sprint")
@@ -17,11 +21,8 @@ function Tasks(props) {
 
                 return res.json();
             })
-            .catch(error => {
-                return null;
-            }).then(res => {
-                setTasks(res);
-        });
+            .catch(() => { return null; })
+            .then(res => setTasks(res));
     }, [props.sprint]);
 
     if(props.sprint == null) {
@@ -29,7 +30,7 @@ function Tasks(props) {
     }
 
     if(tasks == null ||
-        tasks.length == 0) {
+        tasks.length === 0) {
         return (
             <p>There are no tasks in the sprint.</p>
         );
