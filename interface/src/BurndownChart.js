@@ -39,17 +39,21 @@ const data = {
     datasets: [{}],
 };
 
+function getSprintProgress(sprintId) {
+    return fetch("http://localhost:8080/sprints/" + sprintId + "/progress", {method: 'GET'});
+}
+
 function BurndownChart(props) {
-    const [remainingTasksData, setRemainingTasks] = useState(data);
+    const [progress, setProgress] = useState(data);
 
     useEffect(() => {
         if(props.sprint == null ||
             props.sprint.id == null ||
-            props.sprint.status != "IN_PROGRESS") {
+            props.sprint.status !== "IN_PROGRESS") {
             return;
         }
 
-        fetch("http://localhost:8080/sprints/" + props.sprint.id + "/progress", {method: 'GET'})
+        getSprintProgress(props.sprint.id)
             .then(res => {
                 if(!res.ok) {
                     throw new Error("No current sprint")
@@ -57,7 +61,7 @@ function BurndownChart(props) {
 
                 return res.json();
             })
-            .catch(error => {
+            .catch(() => {
                 return null;
             })
             .then(json => {
@@ -67,7 +71,7 @@ function BurndownChart(props) {
 
                 const labels = Object.keys(json.days2ExpectedPoints)
 
-                setRemainingTasks({
+                setProgress({
                     labels,
                     datasets: [
                         {
@@ -89,13 +93,13 @@ function BurndownChart(props) {
 
     if(props.sprint == null ||
         props.sprint.id == null ||
-        props.sprint.status != "IN_PROGRESS") {
+        props.sprint.status !== "IN_PROGRESS") {
         return null;
     }
 
     return (
         <div className="BurndownChart">
-            <Line options={options} data={remainingTasksData} />
+            <Line options={options} data={progress} />
         </div>
     );
 }

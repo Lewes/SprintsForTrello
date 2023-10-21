@@ -21,7 +21,7 @@ public class EventsManager {
                     continue;
                 }
 
-                if(!method.getParameterTypes()[0].isAssignableFrom(event.getClass())) {
+                if(!doesListenerParameterExtendEvent(event, method)) {
                     continue;
                 }
 
@@ -32,6 +32,10 @@ public class EventsManager {
                 }
             }
         }
+    }
+
+    private static boolean doesListenerParameterExtendEvent(Event event, Method method) {
+        return method.getParameterTypes()[0].isAssignableFrom(event.getClass());
     }
 
 }
