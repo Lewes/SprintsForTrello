@@ -26,6 +26,8 @@ public class SprintTaskHandler implements Listener {
 
     @EventHandler
     public void onNewSprintTask(NewSprintTaskEvent event) {
+        event.getSprintTask().setTimeAdded(System.currentTimeMillis());
+
         updateSprintTaskStatusToReflectTrello(event.getSprintTask());
     }
 

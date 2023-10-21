@@ -170,6 +170,10 @@ public class SprintController {
             int value = 0;
 
             for(SprintTask task : tasks) {
+                if(task.getTimeAdded() >= setTimeStampToMidnightTomorrow(newCalendar.getTimeInMillis())) {
+                    continue;
+                }
+
                 if(task.getStatus() == Status.NOT_STARTED ||
                     task.getStatus() == Status.IN_PROGRESS ||
                     ((task.getStatus() == Status.DONE || task.getStatus() == Status.REMOVED) && (task.getTimeCompleted() >= newCalendar.getTimeInMillis() &&

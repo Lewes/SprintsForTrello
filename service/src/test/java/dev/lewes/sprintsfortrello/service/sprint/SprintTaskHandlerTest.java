@@ -131,24 +131,25 @@ public class SprintTaskHandlerTest {
     }
 
     @Test
-    public void cardsAreSetAsDoneWhenMovedToDone() {
-        long startedTime = System.currentTimeMillis();
-
+    public void cardAddedMidSprintHasTimeSet() {
         createTrelloCardsInBacklog();
         syncTrelloTasks();
 
         String sprintId = createTestSprintAndReturnId();
         addAllTasksToSprint(sprintId);
 
-        trelloCards.get(0).setIdList(trelloProperties.getDoneColumnId());
+        long startedTime = System.currentTimeMillis();
+
+        trelloCards.add(new TrelloCard("joined-late", "Joined Late [3]", trelloProperties.getBacklogColumnId()));
         syncTrelloTasks();
+
+        addAllTasksToSprint(sprintId);
 
         ResponseEntity<SprintTask[]> tasks = getSprintTasks(sprintId);
 
         assertThat(Arrays.stream(tasks.getBody()).toArray(), hasItemInArray(
             allOf(
-                hasProperty("status", is(Status.DONE)),
-                hasProperty("timeCompleted", is(allOf(
+                hasProperty("timeAdded", is(allOf(
                     greaterThan(startedTime),
                     lessThan(System.currentTimeMillis())
                 )))
@@ -271,6 +272,11 @@ public class SprintTaskHandlerTest {
         sprintTask.setStatus(Status.DONE);
         sprintTaskRepository.save(sprintTask);
 
+        SprintTask addedLateTask = sprintTaskRepository.findByTrelloCardId(trelloCards.get(1).getId()).get();
+        addedLateTask.setTimeAdded(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1));
+        addedLateTask.setStatus(Status.DONE);
+        sprintTaskRepository.save(addedLateTask);
+
         ResponseEntity<SprintTask[]> sprintTasks = getSprintTasks(sprint.getId());
 
         ResponseEntity<SprintProgress> sprintProgressResponse = getSprintProgress(sprint.getId());
@@ -293,6 +299,10 @@ public class SprintTaskHandlerTest {
             int expectedValue = 0;
 
             for(SprintTask task : sprintTasks.getBody()) {
+                if(task.getTimeAdded() >= setTimeStampToMidnightTomorrow(parsedDate.getTime())) {
+                    continue;
+                }
+
                 if(task.getStatus() == Status.IN_PROGRESS ||
                     task.getStatus() == Status.NOT_STARTED ||
                     ((task.getStatus() == Status.DONE || task.getStatus() == Status.REMOVED) &&

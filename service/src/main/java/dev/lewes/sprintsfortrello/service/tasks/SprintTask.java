@@ -14,6 +14,7 @@ public class SprintTask {
     private TrelloCard trelloCard;
     private Status status = Status.UNKNOWN;
     private long timeCompleted;
+    private long timeAdded;
     private int points;
 
     public enum Status {
@@ -58,6 +59,14 @@ public class SprintTask {
 
     public void setTimeCompleted(long timeCompleted) {
         this.timeCompleted = timeCompleted;
+    }
+
+    public long getTimeAdded() {
+        return timeAdded;
+    }
+
+    public void setTimeAdded(long timeAdded) {
+        this.timeAdded = timeAdded;
     }
 
     public int getPoints() {
